@@ -1,0 +1,125 @@
+---
+- hosts: all  
+  become: yes
+  vars:
+    secret_ca_passphrase: TestValue
+  tasks:
+    - name: Install a Linux package
+      yum:
+        name:
+          - python36.x86_64
+          - python3-firewall
+          - python3-pip
+          - python3-cryptography
+        state: present
+    - name: restart ntpd
+      service: name=firewalld state=started
+    - name: Gather information about active zones
+      ansible.posix.firewalld_info:
+         active_zones: yes
+      notify:
+      - restart ntpd
+    - name: Run firewall service
+      ansible.posix.firewalld:
+        zone: drop
+        state: enabled
+        permanent: yes
+        icmp_block: echo-request
+
+    - name: Create private key with password protection
+      community.crypto.openssl_privatekey:
+        path: /tmp/ca-certificate.key
+        cipher: auto # Could update exampel
+        passphrase: "{{ secret_ca_passphrase }}"
+
+    - name: Create certificate signing request (CSR) for CA certificate
+      community.crypto.openssl_csr_pipe:
+        privatekey_path: /tmp/ca-certificate.key
+        privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        common_name: Ansible CA
+        use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
+        basic_constraints:
+          - 'CA:TRUE'
+        basic_constraints_critical: yes
+        key_usage:
+          - keyCertSign
+        key_usage_critical: true
+      register: ca_csr
+
+    - name: Create self-signed CA certificate from CSR
+      community.crypto.x509_certificate:
+        path: /tmp/ca-certificate.pem
+        csr_content: "{{ ca_csr.csr }}"
+        privatekey_path: /tmp/ca-certificate.key
+        privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        provider: selfsigned
+
+    - name: Create private key for new certificate on default
+      community.crypto.openssl_privatekey:
+        path: /tmp/certificate.key
+      delegate_to: default
+      run_once: true
+
+    - name: Create certificate signing request (CSR) for new certificate
+      community.crypto.openssl_csr_pipe:
+        privatekey_path: /tmp/certificate.key
+        subject_alt_name:
+          - "DNS:ansible.com"
+          - "DNS:www.ansible.com"
+          - "DNS:docs.ansible.com"
+      delegate_to: default
+      run_once: true
+      register: csr
+
+    - name: Check whether certificate exists
+      stat:
+        path: /tmp/certificate.pem
+      delegate_to: default
+      run_once: true
+      register: certificate_exists
+
+    - name: Read existing certificate if exists
+      slurp:
+        src: /tmp/certificate.pem
+      when: certificate_exists.stat.exists
+      delegate_to: default
+      run_once: true
+      register: certificate
+
+    - name: Sign certificate with our CA
+      community.crypto.x509_certificate_pipe:
+        content: "{{ (certificate.content | b64decode) if certificate_exists.stat.exists else omit }}"
+        csr_content: "{{ ca_csr.csr }}"
+        provider: ownca
+        ownca_path: /tmp/ca-certificate.pem
+        ownca_privatekey_path: /tmp/ca-certificate.key
+        ownca_privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        ownca_not_after: +365d  # valid for one year
+        ownca_not_before: "-1d"  # valid since yesterday
+      delegate_to: default
+      run_once: true
+      register: certificate
+
+    - name: Write certificate file on default
+      copy:
+        dest: /tmp/certificate.pem
+        content: "{{ certificate.certificate }}"
+      delegate_to: default
+      run_once: true
+      when: certificate is changed
+
+    - name: Update sshd configuration safely, avoid locking yourself out
+      ansible.builtin.template:
+        src: sshd_config.j2
+        dest: /etc/ssh/ssh_config.d/sshd_config.config
+        owner: root
+        group: root
+        mode: '0600'
+        validate: /usr/sbin/sshd -t -f %s
+        backup: yes
+
+  handlers:
+    - name: restart ntpd
+      service: name=ntpd state=restarted
+
+
