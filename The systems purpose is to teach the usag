@@ -1,0 +1,72 @@
+The systems purpose is to teach the usage of diffirent types of authentication methods based on PKI. In cooprate environment their a multitude of requirements, one of the main requirements is to effectivily encrypt data. This is at rest and in transit. Thus PKI technologies have to be implemented to make this possible. Strong authentication is import, so we also aim to show how TLS can be used in order ensure to strength public facing login interfaces. To enable the ability to think lateral it also important to understand how to evalaute one's priviledges by using alternative authenication methods. Understanding these things would also enable an administrator to secure the infrasture and reduce the attack surface by adding an extra barrier to application which contian vulnarabilities.
+
+
+
+# Enumiration
+
+The intiial enumiration phase is to begin by evalauting the system. Two main ports should be visable to user. Http port which should be on port 443 though secured by https mtls and then there should an alternate port for employees only. Upon scanning the directory the user should dsicover a few things. A web page for employee only portal. 
+Upon scanning this with dirb the student should discover diretires inlduing one with user certificates that can be used for authentication. This should be running on a non standard port. the -p- should be use in to find this port. 
+
+Once those file are download the user is expect to then authentication to the running web application. Upon further enumiration they should find default credential. Those credentials enable logging in to the system to then verify the system version.
+
+There is vulrnability for this particular application on exploitdb. Thus it should be trival to download the exploit and attempt to target the remote system. The exploit will need modifications to ensure it funcations correctly. These are related to mtls. 
+
+It should be possible to then gain a shell on the remote system. A low priviledge shell that should enable enimration. The key thing is for the user to notice that docker is enabled by default. Though unable to access it.
+
+Weak folder permissions relating to security explore certificate key information. By enumirating open ports the user finds docker listening ports assoaited with port and process mapping.
+
+Once that information has been found the user can proceed to enumirate the system futher. The goal is to find method of generating the required certificates. Either via openssl or other means locally. We may need to use diffirent certificates for docker service. 
+
+
+Once the user has generated the certificates. It is then possible to authenticate to the docker daemon via the following command. It might required to set the correct context for the user certificates.
+
+docker -D -H "192.168.56.10:5555" --tlsverify --tlscacert=/etc/pki/o3h_certs/ca-web-certificate.pem --tlscert=/etc/pki/o3h_certs/certificate-client.pem --tlskey=/etc/pki/o3h_certs/certificate-client.key -l debug version
+
+
+It is then possible to launch root shell via a priviledged container either by editting the etc folder strtucture or mounting the root directory and pending an ssh key.
+
+# Secondary node
+
+In order to exploit the system we have to enumirate all ports. Once all ports have been enumirated we should identify a application running on the system. This application enables us to understand that docker is installed on the remote system.
+
+
+Through this information the user can start to think about ways to intract with the api. ideally they can can ssh into the system. Once sshd in to the system enumiration should show that an alternate docker user is present on the system. 
+
+
+This docker user can then be further emurated to find that there is no possibly to run the docker command. Though it might still be possible to ssh and authenticate to the system this way. 
+
+The attack should then be able to run a docker container via ssh assuming that they have locally configure the local system with the correct ssh config file
+
+Host 192.168.56.10
+        Hostname 192.168.56.10
+        User vagrant
+        IdentitiesOnly yes
+        IdentityFile /home/vagrant/.ssh/id_ssh_rsa
+        CertificateFile /home/vagrant/.ssh/id_ssh_rsa-cert.pub
+        ControlMaster     auto
+        ControlPath       ~/.ssh/control-%C
+        ControlPersist    yes
+
+
+
+We could either use docker daemon or docker ssh. The docker daemon cat 
+
+dockerdev ALL=!/bin/docker
+
+dockerdev ALL=NOPASSWD: /bin/docker system dial-stdio
+
+
+
+
+<div class="log-form">
+  <h2>Org private admin protal</h2>
+  <form>
+
+    <h3> Welcome to the private admin portal. </h3>
+    <button type="submit" class="btn">Login</button>
+    <button type="submit" class="btn" href="/openemr-5_0_1_3">openemr</button>
+
+  </form>
+
+</div>
+<!--end log form -->

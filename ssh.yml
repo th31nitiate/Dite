@@ -1,0 +1,56 @@
+---
+
+
+    - name: Case insensitive password string match
+      ansible.builtin.expect:
+        command: "/usr/bin/ssh-keygen -f {{ pki_dir }}/ca-ssh-certificate.key -y" # > {{ ssh_dir }}/ca-ssh-certificate.pub"
+        responses:
+          (?i)passphrase:: "TestValue"
+      register: ssh_ca_cert
+
+    - name: Write certificate file on dev
+      copy:
+        dest: "{{ ssh_dir }}/ca-ssh-certificate.pub"
+        content: "{{ ssh_ca_cert.stdout_lines[1] }}"
+      delegate_to: dev.o3h.local
+      run_once: true
+      when: ssh_ca_cert is changed
+
+
+    - name: Create directory {{ pki_dir }}
+      ansible.builtin.file:
+        path: "{{ ssh_dir }}/ca-ssh-certificate.key"
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Add default docker user
+      ansible.builtin.user:
+        name: dockerdev
+        comment: Account used for local docker development
+        uid: 1040
+        shell: /bin/bash
+
+    - name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+      community.crypto.openssh_keypair:
+        path: "{{ ssh_dir }}/dockerdev"
+
+
+#ssh-keygen -f /etc/pki/o3h_certs/ca-ssh-certificate.key -y > private.pub
+
+    - name: Case insensitive password string match
+      ansible.builtin.expect:
+        command: /usr/bin/ssh-keygen -s {{ ssh_dir }}/ca-ssh-certificate.key -I 'edcbb' -z '0003' -n dockerdev {{ ssh_dir }}/dockerdev.pub
+        responses:
+          (?i)passphrase:: "TestValue"
+      register: ssh_cert
+
+    - name: Write certificate file on dev
+      copy:
+        dest: "{{ ssh_dir }}/user-ssh-certificate.pub"
+        content: "{{ ssh_cert.stdout_lines[1] }}"
+      delegate_to: dev.o3h.local
+      run_once: true
+      when: ssh_cert is changed
+
+#ssh -o CertificateFile=id_ssh_rsa-cert.pub -i /tmp/id_ssh_rsa vagrant@localhost

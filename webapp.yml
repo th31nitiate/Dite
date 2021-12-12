@@ -1,0 +1,124 @@
+---
+    - name: Install a Linux package
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - python36.x86_64
+        - python3-firewall
+        - python3-pip
+        - python3-cryptography
+        - mariadb-server
+        - mariadb
+        - php-xml.x86_64
+        - python3-PyMySQL.noarch
+        - python3-libselinux.x86_64
+        - epel-release
+        - php-json.x86_64
+        - python3-pexpect.noarch
+        - httpd
+        - php
+        - php-mysqlnd
+        - mod_ssl
+
+    - name: Install the latest version of Apache
+      dnf:
+        name: php-mbstring
+        state: latest
+
+    - name: Update sshd configuration safely, avoid locking yourself out
+      ansible.builtin.template:
+        src: sshd_config.j2
+        dest: /etc/ssh/ssh_config.d/sshd_config.config
+        owner: root
+        group: root
+        mode: '0600'
+        validate: /usr/sbin/sshd -t -f %s
+        backup: yes
+
+    - name: Provision docker configuration daemon
+      template:
+        src: httppassword
+        dest: /etc/httpd/htpasswd
+      notify:
+        - restart apache2
+
+    - name: Update httpd configuration safely, avoid locking yourself out
+      ansible.builtin.template:
+        src: apache2.cong.j2
+        dest: /etc/httpd/conf.d/sites.conf
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: check if rules file exists
+      stat: 
+        path: /var/www/html/openemr-5_0_1_3
+      register: openemr
+
+    - name: Unarchive a file that needs to be downloaded
+      ansible.builtin.unarchive:
+        src: https://github.com/openemr/openemr/archive/v5_0_1_3.tar.gz
+        dest: /var/www/html/
+        remote_src: yes
+      when: openemr.stat.exists == False
+
+
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: '0666'
+      with_items:
+        - /var/www/html/openemr-5_0_1_3/sites/default/sqlconf.php
+        - /var/www/html/openemr-5_0_1_3/interface/modules/zend_modules/config/application.config.php
+        - /var/www/html/openemr-5_0_1_3/sites/default/documents
+        - /var/www/html/openemr-5_0_1_3/sites/default/edi
+        - /var/www/html/openemr-5_0_1_3/sites/default/era
+        - /var/www/html/openemr-5_0_1_3/sites/default/letter_templates
+        - /var/www/html/openemr-5_0_1_3/gacl/admin/templates_c
+        - /var/www/html/openemr-5_0_1_3/interface/main/calendar/modules/PostCalendar/pntemplates/compiled
+        - /var/www/html/openemr-5_0_1_3/interface/main/calendar/modules/PostCalendar/pntemplates/cache
+
+    - name: Ensure all services are started and enabled
+      service: 
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - docker
+        - mariadb
+        - httpd
+
+    - name: Create a new database with name 'openerm'
+      community.mysql.mysql_db:
+        name: openemrdb
+        state: present
+
+    - name: Create database user with name 'openerm_user' and password with openerm database privileges
+      community.mysql.mysql_user:
+        name: openemr_user
+        password: PASSWORD
+        priv: 'openemr.*:ALL'
+        state: present       
+
+    - name: Create a directory if it does not exist
+      ansible.builtin.file:
+        path: "/var/www/html/{{ item }}"
+        state: directory
+        mode: '0755'
+      with_items:
+        - private
+        - private/notes
+
+    - name: Update html folder in local directory
+      ansible.builtin.template:
+        src: "{{ item }}"
+        dest: "/var/www/html/private/{{ item }}"
+        owner: root
+        group: root
+        mode: '0644'
+      with_items:
+        - index.html
+        - style.css
+      notify:
+       - restart apache2

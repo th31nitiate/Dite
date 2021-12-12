@@ -1,125 +1,196 @@
 ---
+- hosts: dev  
+  become: yes
+  vars:
+    secret_ca_passphrase: TestValue
+    pki_dir: /etc/pki/o3h_certs
+    ssh_dir: /etc/ssh
+    notes_web_dir: /var/www/html/private/notes
+    hostsfiles:
+      - "{{ pki_dir }}/ca-certificate.pem"
+      - "{{ pki_dir }}/ca-web-certificate.pem"
+  tasks:
+
+#Ensure to set certiifctae root directory including common name for certs /etc/pki/tls/certs/
+# Consider certificate concepts
+
+    - name: Put SELinux in permissive mode, logging actions that would be blocked.
+      ansible.posix.selinux:
+        policy: targeted
+        state: permissive
+
+    #- name: Unconditionally reboot the machine with all defaults
+    #  reboot:
+
+    - name: Configure web application system
+      include_tasks: webapp.yml
+
+    - name: Configure web application system
+      include_tasks: docker.yml
+
+    - name: Configure PKI system
+      include_tasks: certs.yml
+
+    - name: Configure the firewalld server
+      service:
+        name: firewalld
+        state: stopped
+
+    - name: Configure SSH system
+      include_tasks: ssh.yml
+  handlers:
+    - name: restart ntpd
+      service:
+        name: ntpd
+        state: restarted
+
+    - name: restart docker
+      service:
+        name: docker
+        state: restarted
+        daemon_reload: yes
+
+    - name: restart apache2
+      service:
+        name: httpd
+        state: restarted
+
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+    - name: Update trust store
+      ansible.builtin.command: /usr/bin/update-ca-trust
+
+
+
+
 - hosts: all  
   become: yes
   vars:
     secret_ca_passphrase: TestValue
+    pki_dir: /etc/pki/o3h_certs
+    ssh_dir: /etc/ssh
+    notes_web_dir: /var/www/html/private/notes
+    hostsfiles:
+      - "{{ pki_dir }}/ca-certificate.pem"
+      - "{{ pki_dir }}/ca-web-certificate.pem"
   tasks:
-    - name: Install a Linux package
-      yum:
-        name:
-          - python36.x86_64
-          - python3-firewall
-          - python3-pip
-          - python3-cryptography
-        state: present
-    - name: restart ntpd
-      service: name=firewalld state=started
-    - name: Gather information about active zones
-      ansible.posix.firewalld_info:
-         active_zones: yes
-      notify:
-      - restart ntpd
-    - name: Run firewall service
-      ansible.posix.firewalld:
-        zone: drop
-        state: enabled
-        permanent: yes
-        icmp_block: echo-request
+    - name: Configure HTTP system
+      include_tasks: web.yml
 
-    - name: Create private key with password protection
-      community.crypto.openssl_privatekey:
-        path: /tmp/ca-certificate.key
-        cipher: auto # Could update exampel
-        passphrase: "{{ secret_ca_passphrase }}"
+    #- name: Configure web application system
+    #  include_tasks: docker.yml
 
-    - name: Create certificate signing request (CSR) for CA certificate
-      community.crypto.openssl_csr_pipe:
-        privatekey_path: /tmp/ca-certificate.key
-        privatekey_passphrase: "{{ secret_ca_passphrase }}"
-        common_name: Ansible CA
-        use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
-        basic_constraints:
-          - 'CA:TRUE'
-        basic_constraints_critical: yes
-        key_usage:
-          - keyCertSign
-        key_usage_critical: true
-      register: ca_csr
 
-    - name: Create self-signed CA certificate from CSR
-      community.crypto.x509_certificate:
-        path: /tmp/ca-certificate.pem
-        csr_content: "{{ ca_csr.csr }}"
-        privatekey_path: /tmp/ca-certificate.key
-        privatekey_passphrase: "{{ secret_ca_passphrase }}"
-        provider: selfsigned
 
-    - name: Create private key for new certificate on default
-      community.crypto.openssl_privatekey:
-        path: /tmp/certificate.key
-      delegate_to: default
-      run_once: true
+    - name: Fetch the file from the mwiapp01 to master
+      run_once: yes
+      fetch: src={{ pki_dir }}/{{ item }} dest={{ item }} flat=yes
+      when: inventory_hostname == "192.168.56.10"
+      with_items:
+       - "ca-certificate.pem"
+       - "ca-docker-certificate.pem"
+       - "docker.pem"
+       - "docker.key"
 
-    - name: Create certificate signing request (CSR) for new certificate
-      community.crypto.openssl_csr_pipe:
-        privatekey_path: /tmp/certificate.key
-        subject_alt_name:
-          - "DNS:ansible.com"
-          - "DNS:www.ansible.com"
-          - "DNS:docs.ansible.com"
-      delegate_to: default
-      run_once: true
-      register: csr
+    - name: Fetch the file from the mwiapp01 to master
+      run_once: yes
+      fetch: src={{ ssh_dir }}/{{ item }} dest={{ item }} flat=yes
+      when: inventory_hostname == "192.168.56.10"
+      with_items:
+       - "ca-ssh-certificate.pub"
 
-    - name: Check whether certificate exists
-      stat:
-        path: /tmp/certificate.pem
-      delegate_to: default
-      run_once: true
-      register: certificate_exists
 
-    - name: Read existing certificate if exists
-      slurp:
-        src: /tmp/certificate.pem
-      when: certificate_exists.stat.exists
-      delegate_to: default
-      run_once: true
-      register: certificate
+    - name: Copy the file from master to mwiapp02
+      copy: src={{ item }} dest={{ pki_dir }}/{{ item }}
+      when: inventory_hostname == "192.168.56.11"
+      with_items:
+       - "ca-certificate.pem"
+       - "ca-docker-certificate.pem"
 
-    - name: Sign certificate with our CA
-      community.crypto.x509_certificate_pipe:
-        content: "{{ (certificate.content | b64decode) if certificate_exists.stat.exists else omit }}"
-        csr_content: "{{ ca_csr.csr }}"
-        provider: ownca
-        ownca_path: /tmp/ca-certificate.pem
-        ownca_privatekey_path: /tmp/ca-certificate.key
-        ownca_privatekey_passphrase: "{{ secret_ca_passphrase }}"
-        ownca_not_after: +365d  # valid for one year
-        ownca_not_before: "-1d"  # valid since yesterday
-      delegate_to: default
-      run_once: true
-      register: certificate
-
-    - name: Write certificate file on default
-      copy:
-        dest: /tmp/certificate.pem
-        content: "{{ certificate.certificate }}"
-      delegate_to: default
-      run_once: true
-      when: certificate is changed
+    - name: Copy the file from master to mwiapp02
+      copy: src={{ item }} dest={{ ssh_dir }}/{{ item }}
+      when: inventory_hostname == "192.168.56.11"
+      with_items:
+       - "ca-ssh-certificate.pub"
 
     - name: Update sshd configuration safely, avoid locking yourself out
       ansible.builtin.template:
         src: sshd_config.j2
-        dest: /etc/ssh/ssh_config.d/sshd_config.config
+        dest: /etc/ssh/sshd_config
         owner: root
         group: root
         mode: '0600'
         validate: /usr/sbin/sshd -t -f %s
         backup: yes
+      notify:
+       - restart sshd
 
   handlers:
     - name: restart ntpd
-      service: name=ntpd state=restarted
+      service:
+        name: ntpd
+        state: restarted
+
+    - name: restart docker
+      service:
+        name: docker
+        state: restarted
+        daemon_reload: yes
+
+    - name: restart apache2
+      service:
+        name: httpd
+        state: restarted
+
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+    - name: Update trust store
+      ansible.builtin.command: /usr/bin/update-ca-trust
 
 
+- hosts: nodes  
+  become: yes
+  vars:
+    secret_ca_passphrase: TestValue
+    pki_dir: /etc/pki/o3h_certs
+    ssh_dir: /etc/ssh
+    notes_web_dir: /var/www/html/private/notes
+    hostsfiles:
+      - "{{ pki_dir }}/ca-certificate.pem"
+      - "{{ pki_dir }}/ca-web-certificate.pem"
+  tasks:
+    - name: Configure HTTP system
+      include_tasks: web.yml
+
+    - name: Configure web application system
+      include_tasks: docker.yml
+  handlers:
+    - name: restart ntpd
+      service:
+        name: ntpd
+        state: restarted
+
+    - name: restart docker
+      service:
+        name: docker
+        state: restarted
+        daemon_reload: yes
+
+    - name: restart apache2
+      service:
+        name: httpd
+        state: restarted
+
+    - name: restart sshd
+      service:
+        name: sshd
+        state: restarted
+
+    - name: Update trust store
+      ansible.builtin.command: /usr/bin/update-ca-trust

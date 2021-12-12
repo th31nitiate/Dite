@@ -1,0 +1,59 @@
+---
+    - name: Install a Linux package
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - python36.x86_64
+        - python3-firewall
+        - python3-pip
+        - python3-cryptography
+        - docker-ce
+        - python3-pexpect.noarch
+        - docker-ce-cli
+        - containerd.io
+        - python3-docker.noarch
+
+    - name: Download yum repositry
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docker-ce.repo
+        mode: '0440'
+
+    - name: Ensure to the docker service is started
+      service: 
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - docker
+
+    - name: Provision docker configuration daemon
+      template:
+        src: docker.service.j2
+        dest: /usr/lib/systemd/system/docker.service
+
+    - name: Container present
+      community.docker.docker_container:
+        name: mycontainer
+        state: started
+        image: gcr.io/kuar-demo/kuard-amd64:blue
+        command: /kuard
+        ports:
+          - "8080:8080"
+      when: inventory_hostname == "192.168.56.11"
+
+
+    - name: Pull an docker image
+      community.docker.docker_image:
+        name: ubuntu
+        source: pull
+      when: inventory_hostname == "192.168.56.10"
+
+
+    - name: Provision docker configuration daemon
+      template:
+        src: file.json.j2
+        dest: /etc/docker/daemon.json
+      notify:
+        - restart docker
