@@ -19,6 +19,7 @@
         - python3-pexpect.noarch
         - docker-ce-cli
         - containerd.io
+        - open-vm-tools # Sicne docker will be avalible on all host this is ideal for install vm tools
         - python3-docker.noarch
 
     - name: Ensure to the Docker service is started and enabled
@@ -31,7 +32,7 @@
 
     - name: Provision docker daemon configuration file
       template:
-        src: docker.service.j2
+        src: config/docker.service.j2
         dest: /usr/lib/systemd/system/docker.service
 
     - name: Container present
@@ -52,7 +53,22 @@
 
     - name: Provision docker configuration daemon
       template:
-        src: daemon.json.j2
+        src: config/daemon.json.j2
         dest: /etc/docker/daemon.json
       notify:
         - restart docker
+
+    - name: Add default dockerdev user
+      ansible.builtin.user:
+        name: dockerdev
+        groups: docker
+        comment: Account used for local docker development
+        uid: 1040
+        shell: /bin/bash
+
+    #- name: Provision docker sudeors file
+    #  template:
+    #    src: config/docker_sudoers.j2
+    #    dest: /etc/sudoers
+    #  when: inventory_hostname == "192.168.56.11"
+

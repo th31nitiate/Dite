@@ -10,9 +10,7 @@ Upon scanning this with the dirb directory the a folder under the path `private`
 
 This is a directory intended for intranet only applications though it seems misconfigured. By attemptting to visit the private admin notes area we find the site is protected by HTTP based authentication.
 
-
 Through some inspection we see that based on the default admin page it states that OpenEMR credentials should work. After trying to look up the default credentails and attempting to use them we find that authentication is successful.
-
 
 We find a notes area of which there a few of files of which after further investigation we find to be x509 pem files.
 

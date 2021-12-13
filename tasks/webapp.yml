@@ -26,26 +26,16 @@
         name: php-mbstring
         state: latest
 
-    - name: Update sshd configuration safely
-      ansible.builtin.template:
-        src: sshd_config.j2
-        dest: /etc/ssh/ssh_config.d/sshd_config.config
-        owner: root
-        group: root
-        mode: '0600'
-        validate: /usr/sbin/sshd -t -f %s
-        backup: yes
-
     - name: Provision docker configuration daemon
       template:
-        src: httppassword
+        src: config/httppassword
         dest: /etc/httpd/htpasswd
       notify:
         - restart apache2
 
     - name: Update httpd configuration safely, avoid locking yourself out
       ansible.builtin.template:
-        src: apache2.cong.j2
+        src: config/apache2.cong.j2
         dest: /etc/httpd/conf.d/ssl.conf
         owner: root
         group: root
@@ -103,23 +93,48 @@
     - name: Update html folder with local admin portal app
       ansible.builtin.template:
         src: "{{ item }}"
-        dest: "/var/www/html/private/{{ item }}"
+        dest: "/var/www/html/private/{{ item.split('/')[1] }}"
         owner: root
         group: root
         mode: '0644'
       with_items:
-        - index.html
-        - style.css
+        - web/index.html
+        - web/style.css
 
     - name: Provision default html page
       ansible.builtin.copy:
         src: "{{ item }}"
-        dest: "/var/www/html/{{ item }}"
+        dest: "/var/www/html/{{ item.split('/')[1] }}"
         owner: root
         group: root
         mode: '0644'
       with_items:
-        - index.php
-        - background.jpg
+        - web/index.php
+        - images/background.jpg
+  
       notify:
        - restart apache2
+
+    - name: Enable HTTPS access service
+      ansible.posix.firewalld:
+        port: 443/tcp
+        permanent: yes
+        state: enabled
+
+    - name: Enable SSH access service
+      ansible.posix.firewalld:
+        port: 22/tcp
+        permanent: yes
+        state: enabled
+
+    - name: Enable HTTP access service
+      ansible.posix.firewalld:
+        port: 3434/tcp
+        permanent: yes
+        state: enabled
+
+    - name: Enable Docker daemon service
+      ansible.posix.firewalld:
+        port: 5555/tcp
+        permanent: yes
+        state: enabled

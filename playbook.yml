@@ -1,10 +1,9 @@
 ---
-
 ### We start by provisioning theacreageenvironment
 - hosts: acreage 
   become: yes
   vars:
-    ca_passphrase: TestValue
+    ca_passphrase: admin
     pki_dir: /etc/pki/dite_certs
     ssh_dir: /etc/ssh
     notes_web_dir: /var/www/html/private/notes
@@ -13,41 +12,38 @@
       - "{{ pki_dir }}/ca-http.pem"
   tasks:
 
-#Ensure to set certiifctae root directory including common name for certs /etc/pki/tls/certs/
-# Consider certificate concepts
+    #Ensure to set certiifctae root directory including common name for certs /etc/pki/tls/certs/
+    # Consider certificate concepts
 
     #We disable to this to permite for some of the priviledge escalation examples.
     - name: Put SELinux in permissive mode
       ansible.posix.selinux:
         policy: targeted
-        state: permissive
+        state: disabled
 
-    #- name: Unconditionally reboot the machine with all defaults
-    #  reboot:
+    - name: Unconditionally reboot the machine with all defaults
+      reboot:
     
     #Begin with configuring PKI system usage
     #This is since we will be requiring the certificates for diffirent services/
     - name: Configure PKI system
-      include_tasks: certs.yml
-
-
-    - name: Configure web application system
-      include_tasks: docker.yml
+      include_tasks: tasks/certs.yml
 
     - name: Configure web application system
-      include_tasks: webapp.yml
+      include_tasks: tasks/docker.yml
 
-    - name: Configure the firewalld server
-      service:
-        name: firewalld
-        state: stopped
+    - name: Configure web application system
+      include_tasks: tasks/webapp.yml
 
     - name: Configure SSH system
-      include_tasks: ssh.yml
+      include_tasks: tasks/ssh.yml
   handlers:
-    - name: restart ntpd
+    - name: Update trust store
+      ansible.builtin.command: /usr/bin/update-ca-trust
+
+    - name: restart apache2
       service:
-        name: ntpd
+        name: httpd
         state: restarted
 
     - name: restart docker
@@ -56,23 +52,10 @@
         state: restarted
         daemon_reload: yes
 
-    - name: restart apache2
-      service:
-        name: httpd
-        state: restarted
-
-    - name: restart sshd
-      service:
-        name: sshd
-        state: restarted
-
-    - name: Update trust store
-      ansible.builtin.command: /usr/bin/update-ca-trust
-
 - hosts: all  
   become: yes
   vars:
-    ca_passphrase: TestValue
+    ca_passphrase: admin
     pki_dir: /etc/pki/dite_certs
     ssh_dir: /etc/ssh
     notes_web_dir: /var/www/html/private/notes
@@ -80,19 +63,6 @@
       - "{{ pki_dir }}/ca.pem"
       - "{{ pki_dir }}/ca-http.pem"
   tasks:
-    - name: Configure HTTP system
-      include_tasks: web.yml
-
-    #- name: Configure web application system
-    #  include_tasks: docker.yml
-
-    - name: Add default docker user
-      ansible.builtin.user:
-        name: dockerdev
-        comment: Account used for local dockeracreageelopment
-        uid: 1040
-        shell: /bin/bash
-
 
     - name: Create directory {{ pki_dir }}
       ansible.builtin.file:
@@ -104,7 +74,7 @@
 
     - name: Fetch the file from the mwiapp01 to master
       run_once: yes
-      fetch: src={{ pki_dir }}/{{ item }} dest={{ item }} flat=yes
+      fetch: src={{ pki_dir }}/{{ item }} dest=pki/{{ item }} flat=yes
       when: inventory_hostname == "192.168.56.10"
       with_items:
        - "ca.pem"
@@ -114,13 +84,13 @@
 
     - name: Fetch the file from the mwiapp01 to master
       run_once: yes
-      fetch: src={{ ssh_dir }}/{{ item }} dest={{ item }} flat=yes
+      fetch: src={{ ssh_dir }}/{{ item }} dest=pki/{{ item }} flat=yes
       when: inventory_hostname == "192.168.56.10"
       with_items:
        - "ca-ssh.pub"
 
     - name: Copy the file from master to mwiapp02
-      copy: src={{ item }} dest={{ pki_dir }}/{{ item }}
+      copy: src=pki/{{ item }} dest={{ pki_dir }}/{{ item }}
       when: inventory_hostname == "192.168.56.11"
       with_items:
        - "ca.pem"
@@ -129,7 +99,7 @@
        - "docker.key"
        
     - name: Copy the file from master to mwiapp02
-      copy: src={{ item }} dest={{ ssh_dir }}/{{ item }}
+      copy: src=pki/{{ item }} dest={{ ssh_dir }}/{{ item }}
       when: inventory_hostname == "192.168.56.11"
       with_items:
        - "ca-ssh.pub"
@@ -143,10 +113,9 @@
         mode: '0644'
       when: inventory_hostname == "192.168.56.11"
 
-
     - name: Update sshd configuration safely, avoid locking yourself out
       ansible.builtin.template:
-        src: sshd_config.j2
+        src: config/sshd_config.j2
         dest: /etc/ssh/sshd_config
         owner: root
         group: root
@@ -155,13 +124,39 @@
         backup: yes
       notify:
        - restart sshd
+  
+    - name: Write proof.txt to file 
+      copy:
+        dest: "/root/proof.txt"
+        content: "c395f273ed118c4bdba3d1390b49d82de8e3b4264b91686d41f5796d3aab290a"
+      run_once: true
+      when: inventory_hostname == "192.168.56.10"
+
+    - name: Write local.txt to file 
+      copy:
+        dest: "/home/dockerdev/local.txt"
+        content: "7e3c87a8055f2adbc978814fe24fb52d8e7ebb25467a5509959f0b750cb60d6d"
+        mode: 0644
+      run_once: true
+      when: inventory_hostname == "192.168.56.10"
+
+    - name: Write proof.txt to file 
+      copy:
+        dest: "/root/proof.txt"
+        content: "c395f273ed118c4bdba3d1390b49d82de8e3b4264b91686d41f5796d3aab290a"
+        mode: 0700
+      run_once: true
+      when: inventory_hostname == "192.168.56.11"
+
+    - name: Write local.txt to file 
+      copy:
+        dest: "/home/dockerdev/local.txt"
+        content: "7e3c87a8055f2adbc978814fe24fb52d8e7ebb25467a5509959f0b750cb60d6d"
+        mode: 0644
+      run_once: true
+      when: inventory_hostname == "192.168.56.11"
 
   handlers:
-    - name: restart ntpd
-      service:
-        name: ntpd
-        state: restarted
-
     - name: restart docker
       service:
         name: docker
@@ -194,31 +189,20 @@
       - "{{ pki_dir }}/ca-http.pem"
   tasks:
     - name: Configure HTTP system
-      include_tasks: web.yml
+      include_tasks: tasks/web.yml
 
     - name: Configure web application system
-      include_tasks: docker.yml
-  handlers:
-    - name: restart ntpd
-      service:
-        name: ntpd
-        state: restarted
+      include_tasks: tasks/docker.yml
 
+    - name: Enable HTTP access service
+      ansible.posix.firewalld:
+        port: 3434/tcp
+        permanent: yes
+        state: enabled
+
+  handlers:
     - name: restart docker
       service:
         name: docker
         state: restarted
         daemon_reload: yes
-
-    - name: restart apache2
-      service:
-        name: httpd
-        state: restarted
-
-    - name: restart sshd
-      service:
-        name: sshd
-        state: restarted
-
-    - name: Update trust store
-      ansible.builtin.command: /usr/bin/update-ca-trust

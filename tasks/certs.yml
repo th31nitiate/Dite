@@ -33,8 +33,6 @@
         - python3-cryptography
         - python3-pexpect.noarch
 
-
-#/etc/ssh/ca-ssh.key
 ### Creat root CA
     - name: Create Root CA private key with password protection
       community.crypto.openssl_privatekey:
@@ -109,11 +107,6 @@
     - name: Read in the nessoary ca file to create a certitificate bundle
       command: "awk 1 {{ hostsfiles | join(' ') }}"
       register: cert_bundle
-
-    - name: Write cert bundle to disk {{ pki_dir }}/ca_cert_bundle.pem
-      copy:
-        dest: "{{ pki_dir }}/ca_cert_bundle.pem"
-        content: "{{ cert_bundle.stdout_lines | unique |join('\n') }}"
 
 
     #- name: Write certificate file onacreage

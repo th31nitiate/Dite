@@ -24,17 +24,15 @@ Vagrant.configure("2") do |config|
       config.vm.box = opts[:os]
       config.vm.box_check_update = false
       config.vm.network :private_network, ip: opts[:ip]
-      #config.vm.network "forwarded_port", guest: 80, host: 8081, host_ip: "127.0.0.1"
       config.vm.hostname = "#{opts[:name]}.dite.local"
 
     end
-  end
 
-
-  config.vm.provision "ansible" do |ansible|
-    ansible.playbook = "playbook.yml"
-    ansible.inventory_path = "inventory"
-    ansible.verbose = "v"
-    ansible.limit = "all"
+    config.vm.provision "ansible" do |ansible|
+      ansible.playbook = "playbook.yml"
+      ansible.inventory_path = "inventory"
+      ansible.verbose = "v"
+      ansible.limit = "all"
+    end
   end
 end

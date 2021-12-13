@@ -3,7 +3,7 @@
 
     - name: Geneatre SSH CA publickey for PKI based ssh authentication
       ansible.builtin.expect:
-        command: "/usr/bin/ssh-keygen -f {{ pki_dir }}/ca-ssh.key -y" # > {{ ssh_dir }}/ca-ssh.pub"
+        command: "/usr/bin/ssh-keygen -f {{ pki_dir }}/ca-ssh.key -y"
         responses:
           (?i)passphrase:: "{{ ca_passphrase}}"
       register: ssh_ca_cert
@@ -17,29 +17,17 @@
       run_once: true
       when: ssh_ca_cert is changed
 
-
-    #- name: Create directory {{ pki_dir }}
-    #  ansible.builtin.file:
-    #    path: "{{ ssh_dir }}/ca-ssh.key"
-    #    owner: root
-    #    group: root
-    #    mode: '0600'
-
-    - name: Check whether Docker certificate exists
+    - name: Check whether dockerdev certificate exists
       stat:
-        path: "{{ pki_dir }}/dockerdev"
+        path: "{{ ssh_dir }}/dockerdev"
       delegate_to: 192.168.56.10
       run_once: true
       register: dockerdev_exists
 
-
     - name: Generate an OpenSSH keypair for the dockerdev user
       community.crypto.openssh_keypair:
         path: "{{ ssh_dir }}/dockerdev"
-      when: docker_exists.stat.exists != True
-
-
-#ssh-keygen -f /etc/pki/o3h_certs/ca-ssh.key -y > private.pub
+      when: dockerdev_exists.stat.exists != True
 
     - name: Generate SSH key certificate for the dockerdev user
       ansible.builtin.expect:
@@ -62,20 +50,6 @@
         - dockerdev
         - dockerdev-cert.pub
         - dockerdev.pub
-
-    - name: Allow 'dockerdev' group to have passwordless sudo
-      lineinfile:
-        dest: /etc/sudoers
-        state: present
-        line: 'dockerdev ALL=!/bin/docker'
-        validate: visudo -cf %s
-
-    - name: Allow 'dockerdev' group to have passwordless sudo
-      lineinfile:
-        dest: /etc/sudoers
-        state: present
-        line: 'dockerdev ALL=NOPASSWD: /bin/docker system dial-stdio'
-        validate: visudo -cf %s
 
 
 #ssh -o CertificateFile=id_ssh_rsa-cert.pub -i /tmp/id_ssh_rsa vagrant@localhost

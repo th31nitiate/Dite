@@ -1,5 +1,7 @@
 # Build Guide for Dite network 
 
+The systems purpose is to teach the usage of diffirent types of authentication methods based on PKI. In cooprate environment their a multitude of requirements, one of the main requirements is to effectivily encrypt data. This is at rest and in transit. Thus PKI technologies have to be implemented to make this possible. Strong authentication is import, so we also aim to show how TLS can be used in order ensure to strength public facing login interfaces. To enable the ability to think lateral it also important to understand how to evalaute one's priviledges by using alternative authenication methods. Understanding these things would also enable an administrator to secure the infrasture and reduce the attack surface by adding an extra barrier to application which contian vulnarabilities.
+
 ## Status
 
 **NTP**: Off  
@@ -29,11 +31,11 @@
 
 **Location of local.txt**: /home/dockerdev/local.txt  
 
-**Value of local.txt**: 9f1642b69b2a23aca3c5863e3f1ffd92  
+**Value of local.txt**:  7e3c87a8055f2adbc978814fe24fb52d8e7ebb25467a5509959f0b750cb60d6d  
 
 **Location of proof.txt**: /root/proof.txt  
 
-**Value of proof.txt**: ca742c7ad27d517527f49531c02f76b8
+**Value of proof.txt**: c395f273ed118c4bdba3d1390b49d82de8e3b4264b91686d41f5796d3aab290a
 
 #############################################
 
@@ -55,11 +57,11 @@
 
 **Location of local.txt**: /home/dockerdev/local.txt  
 
-**Value of local.txt**: 9f1642b69b2a23aca3c5863e3f1ffd92  
+**Value of local.txt**: 7e3c87a8055f2adbc978814fe24fb52d8e7ebb25467a5509959f0b750cb60d6d  
 
 **Location of proof.txt**: /root/proof.txt  
 
-**Value of proof.txt**: ca742c7ad27d517527f49531c02f76b8
+**Value of proof.txt**: c395f273ed118c4bdba3d1390b49d82de8e3b4264b91686d41f5796d3aab290a
 
 
 ## Required Settings
@@ -136,15 +138,3 @@ On both systems, the alternative system is automaticaly configrued as should. Th
 8. All services and system should be configured as intended.
 
 Ensure to docker daemon user to the docker daemons group. on facet
-
-
-////
-dockerdev ALL=!/usr/bin/docker
-dockerdev ALL=!/bin/docker
-
-
-dockerdev ALL=NOPASSWD: /usr/bin/docker system dial-stdio
-dockerdev ALL=NOPASSWD: /usr/bin/docker ps
-dockerdev ALL=NOPASSWD: /bin/docker system dial-stdio
-dockerdev ALL=NOPASSWD: /bin/docker ps
- for reference
