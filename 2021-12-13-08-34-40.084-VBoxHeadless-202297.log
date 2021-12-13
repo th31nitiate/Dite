@@ -1,0 +1,12 @@
+Log created: 2021-12-13T08:34:40.846754000Z
+Process ID:  202297 (0x31639)
+Parent PID:  1 (0x1)
+Executable:  /usr/lib/virtualbox/VBoxHeadless
+Arg[0]: /usr/lib/virtualbox/VBoxHeadless
+Arg[1]: --comment
+Arg[2]: vagrant-lab_acreage_1639383736871_15263
+Arg[3]: --startvm
+Arg[4]: d796b63f-f495-49a6-bfbf-37b1407a99c5
+Arg[5]: --vrde
+Arg[6]: config
+AddRef: illegal refcnt=3221225469 state=2

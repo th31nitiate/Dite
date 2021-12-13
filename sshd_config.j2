@@ -28,9 +28,9 @@ AcceptEnv XMODIFIERS
 
 Subsystem       sftp    /usr/libexec/openssh/sftp-server
 
-TrustedUserCAKeys "{{ ssh_dir }}/ca-ssh-certificate.pub"
+TrustedUserCAKeys "{{ ssh_dir }}/ca-ssh.pub"
 
-#[root@dev vagrant]# ssh-keygen -f /etc/pki/o3h_certs/ca-ssh-certificate.key -y > private.pub
+#[root@dev vagrant]# ssh-keygen -f /etc/pki/o3h_certs/ca-ssh.key -y > private.pub
  
 
 

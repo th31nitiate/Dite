@@ -1,13 +1,13 @@
 The systems purpose is to teach the usage of diffirent types of authentication methods based on PKI. In cooprate environment their a multitude of requirements, one of the main requirements is to effectivily encrypt data. This is at rest and in transit. Thus PKI technologies have to be implemented to make this possible. Strong authentication is import, so we also aim to show how TLS can be used in order ensure to strength public facing login interfaces. To enable the ability to think lateral it also important to understand how to evalaute one's priviledges by using alternative authenication methods. Understanding these things would also enable an administrator to secure the infrasture and reduce the attack surface by adding an extra barrier to application which contian vulnarabilities.
 
 
+cert=('/home/m3rl1n/Downloads/http-client.key', '/home/m3rl1n/Downloads/http-client.pem'),
+
+
+
 
 # Enumiration
 
-The intiial enumiration phase is to begin by evalauting the system. Two main ports should be visable to user. Http port which should be on port 443 though secured by https mtls and then there should an alternate port for employees only. Upon scanning the directory the user should dsicover a few things. A web page for employee only portal. 
-Upon scanning this with dirb the student should discover diretires inlduing one with user certificates that can be used for authentication. This should be running on a non standard port. the -p- should be use in to find this port. 
-
-Once those file are download the user is expect to then authentication to the running web application. Upon further enumiration they should find default credential. Those credentials enable logging in to the system to then verify the system version.
 
 There is vulrnability for this particular application on exploitdb. Thus it should be trival to download the exploit and attempt to target the remote system. The exploit will need modifications to ensure it funcations correctly. These are related to mtls. 
 
@@ -20,7 +20,8 @@ Once that information has been found the user can proceed to enumirate the syste
 
 Once the user has generated the certificates. It is then possible to authenticate to the docker daemon via the following command. It might required to set the correct context for the user certificates.
 
-docker -D -H "192.168.56.10:5555" --tlsverify --tlscacert=/etc/pki/o3h_certs/ca-web-certificate.pem --tlscert=/etc/pki/o3h_certs/certificate-client.pem --tlskey=/etc/pki/o3h_certs/certificate-client.key -l debug version
+docker -D -H "192.168.56.10:5555" --tlsverify --tlscacert=/etc/pki/dite_certs/ca-web.pem --tlscert=/etc/pki/o3h_certs/docker.pem --tlskey=/etc/pki/dite_certs/docker.key -l debug version
+sudo docker -D -H "192.168.56.10:5555" --tlsverify --tlscacert=/etc/pki/dite_certs/ca-docker.pem --tlscert=/etc/pki/dite_certs/docker.pem --tlskey=/etc/pki/dite_certs/docker.key -l debug version
 
 
 It is then possible to launch root shell via a priviledged container either by editting the etc folder strtucture or mounting the root directory and pending an ssh key.
@@ -37,8 +38,8 @@ This docker user can then be further emurated to find that there is no possibly 
 
 The attack should then be able to run a docker container via ssh assuming that they have locally configure the local system with the correct ssh config file
 
-Host 192.168.56.10
-        Hostname 192.168.56.10
+Host 192.168.56.11
+        Hostname 192.168.56.11
         User vagrant
         IdentitiesOnly yes
         IdentityFile /home/vagrant/.ssh/id_ssh_rsa
@@ -47,7 +48,7 @@ Host 192.168.56.10
         ControlPath       ~/.ssh/control-%C
         ControlPersist    yes
 
-
+acreage
 
 We could either use docker daemon or docker ssh. The docker daemon cat 
 

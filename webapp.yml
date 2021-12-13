@@ -1,5 +1,5 @@
 ---
-    - name: Install a Linux package
+    - name: Install OpenEMR web application packages
       yum:
         name: "{{ item }}"
         state: present
@@ -21,12 +21,12 @@
         - php-mysqlnd
         - mod_ssl
 
-    - name: Install the latest version of Apache
+    - name: Install the PHP mbstring by DNF
       dnf:
         name: php-mbstring
         state: latest
 
-    - name: Update sshd configuration safely, avoid locking yourself out
+    - name: Update sshd configuration safely
       ansible.builtin.template:
         src: sshd_config.j2
         dest: /etc/ssh/ssh_config.d/sshd_config.config
@@ -46,23 +46,22 @@
     - name: Update httpd configuration safely, avoid locking yourself out
       ansible.builtin.template:
         src: apache2.cong.j2
-        dest: /etc/httpd/conf.d/sites.conf
+        dest: /etc/httpd/conf.d/ssl.conf
         owner: root
         group: root
         mode: '0644'
 
-    - name: check if rules file exists
+    - name: check if OpenERM is installed
       stat: 
         path: /var/www/html/openemr-5_0_1_3
       register: openemr
 
-    - name: Unarchive a file that needs to be downloaded
+    - name: Download and unarchive OpenERM that needs to be downloaded
       ansible.builtin.unarchive:
-        src: https://github.com/openemr/openemr/archive/v5_0_1_3.tar.gz
+        src: http://172.16.204.236/openemr-5_0_1_3.tar.gz
         dest: /var/www/html/
         remote_src: yes
       when: openemr.stat.exists == False
-
 
     - name: Recursively change ownership of a directory
       ansible.builtin.file:
@@ -79,7 +78,7 @@
         - /var/www/html/openemr-5_0_1_3/interface/main/calendar/modules/PostCalendar/pntemplates/compiled
         - /var/www/html/openemr-5_0_1_3/interface/main/calendar/modules/PostCalendar/pntemplates/cache
 
-    - name: Ensure all services are started and enabled
+    - name: Ensure all services are started and enabled, docker, mariadb, http 
       service: 
         name: "{{ item }}"
         state: started
@@ -101,16 +100,7 @@
         priv: 'openemr.*:ALL'
         state: present       
 
-    - name: Create a directory if it does not exist
-      ansible.builtin.file:
-        path: "/var/www/html/{{ item }}"
-        state: directory
-        mode: '0755'
-      with_items:
-        - private
-        - private/notes
-
-    - name: Update html folder in local directory
+    - name: Update html folder with local admin portal app
       ansible.builtin.template:
         src: "{{ item }}"
         dest: "/var/www/html/private/{{ item }}"
@@ -120,5 +110,16 @@
       with_items:
         - index.html
         - style.css
+
+    - name: Provision default html page
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "/var/www/html/{{ item }}"
+        owner: root
+        group: root
+        mode: '0644'
+      with_items:
+        - index.php
+        - background.jpg
       notify:
        - restart apache2

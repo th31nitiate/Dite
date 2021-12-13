@@ -1,34 +1,102 @@
 LoadModule ssl_module modules/mod_ssl.so
 
-Listen 444
-<VirtualHost *:444>
-    ServerName dev.o3h.local
-    SSLEngine on
-    SSLCertificateFile "{{ pki_dir }}/certificate-http.pem"
-    SSLCertificateKeyFile "{{ pki_dir }}/certificate-http.key"
-    SSLCertificateChainFile "{{ pki_dir }}/ca-http-certificate.pem"
-    
-    SSLVerifyClient none
-    SSLCACertificateFile "{{ pki_dir }}/ca_cert_bundle.pem"
+#Listen 444
+#<VirtualHost *:444>
+#    ServerName acreage.dite.local
+#    SSLEngine on
+#    SSLCertificateFile "{{ pki_dir }}/http.pem"
+#    SSLCertificateKeyFile "{{ pki_dir }}/http.key"
+#    SSLCertificateChainFile "{{ pki_dir }}/ca-http.pem"
+#    
+#    SSLVerifyClient none
+#    SSLCACertificateFile "{{ pki_dir }}/ca_cert_bundle.pem"
+#
+#    <Location "/openemr-5_0_1_3">
+#    #SSLVerifyClient require
+#    #SSLVerifyDepth 2
+#    </Location>
+#
+#    <Location "/private">
+#    </Location>
+#
+#    <Location "/private/notes">
+#    AuthType Basic
+#    AuthName "Authentication Required"
+#    AuthUserFile "/etc/httpd/htpasswd"
+#    Require valid-user
+#
+#    Order allow,deny
+#    Allow from all
+#    </Location>
+#
+#</VirtualHost>
 
-    <Location "/openemr-5_0_1_3">
-    SSLVerifyClient require
-    SSLVerifyDepth 1
-    </Location>
+Listen 443 https
+
+SSLPassPhraseDialog exec:/usr/libexec/httpd-ssl-pass-dialog
+
+SSLSessionCache         shmcb:/run/httpd/sslcache(512000)
+SSLSessionCacheTimeout  300
+
+SSLCryptoDevice builtin
+
+<VirtualHost _default_:443>
+
+ErrorLog logs/ssl_error_log
+TransferLog logs/ssl_access_log
+LogLevel warn
+
+SSLEngine on
+
+SSLHonorCipherOrder on
+
+SSLCipherSuite PROFILE=SYSTEM
+SSLProxyCipherSuite PROFILE=SYSTEM
+
+SSLCertificateFile "{{ pki_dir }}/http.pem"
+SSLCertificateKeyFile "{{ pki_dir }}/http.key"
+SSLCertificateChainFile "{{ pki_dir }}/ca-http.pem"
 
 
-    <Location "/private">
-    </Location>
 
-    <Location "/private/notes">
-    AuthType Basic
-    AuthName "Authentication Required"
-    AuthUserFile "/etc/httpd/htpasswd"
-    Require valid-user
+<FilesMatch "\.(cgi|shtml|phtml|php)$">
+    SSLOptions +StdEnvVars
+</FilesMatch>
+<Directory "/var/www/cgi-bin">
+    SSLOptions +StdEnvVars
+</Directory>
 
-    Order allow,deny
-    Allow from all
-    </Location>
+BrowserMatch "MSIE [2-5]" \
+         nokeepalive ssl-unclean-shutdown \
+         downgrade-1.0 force-response-1.0
 
+CustomLog logs/ssl_request_log \
+          "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"
+
+SSLVerifyClient none
+SSLCACertificateFile "{{ pki_dir }}/ca.pem"
+
+<Location "/openemr-5_0_1_3">
+#SSLVerifyClient require
+#SSLVerifyDepth 2
+#Once openEMR is configured it is then possible to
+#remove this from the services file
+
+
+</Location>
+
+
+<Location "/private">
+</Location>
+
+<Location "/private/notes">
+AuthType Basic
+AuthName "Authentication Required"
+AuthUserFile "/etc/httpd/htpasswd"
+Require valid-user
+
+Order allow,deny
+Allow from all
+</Location>
 
 </VirtualHost>

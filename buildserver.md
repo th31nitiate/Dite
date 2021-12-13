@@ -1,6 +1,6 @@
 –	One scrinario is using ssl in order to generate custom certificates on a system
 –	This certificate can then be used to authenticate to a remote docker instance
-–	Run a vulnrable application container with vulnarable code mimic a devloper workstation
+–	Run a vulnrable application container with vulnarable code mimic aacreageloper workstation
 –	Authenticate to vulnrable sockets
 –	Virtual hosts brute forcing
 –	Effective git enumiration and exploitation
@@ -68,7 +68,7 @@ Generate or find tls keys to use with docker.  Authenticate to dockers local sys
 
 Use tls client certificate on a remote system via host option to run a container. Enumirate the host main via the docker host. Purpose enumirate sshd config. In order to find ssh keys including certificates required to authenticate and cipher information that might be needed.
 
-- Develop authentication information 
+-acreageelop authentication information 
 
 
 Explore priviledge escalation oppertunities
@@ -248,7 +248,7 @@ Ansible playbook
 -   Install yum repo https://download.docker.com/linux/centos/docker-ce.repo
 
 
-docker -D -H "192.168.56.10:5555" --tlsverify --tlscacert=/etc/pki/o3h_certs/ca-docker-certificate.pem --tlscert=/etc/pki/o3h_certs/certificate-client.pem --tlskey=/etc/pki/o3h_certs/certificate-client.key -l debug version
+docker -D -H "192.168.56.10:5555" --tlsverify --tlscacert=/etc/pki/o3h_certs/ca-docker.pem --tlscert=/etc/pki/o3h_certs/certificate-client.pem --tlskey=/etc/pki/o3h_certs/certificate-client.key -l debug version
 exit
 
 Ensure to deploy a contianer so that it can be used
@@ -256,3 +256,231 @@ Ensure to deploy a contianer so that it can be used
 Disable docker sudo and enable ssh auth with cert
 
 Run kurd app on with http based auth
+
+
+
+======
+
+In order to build the system it might be requirement to edit the config file to suite your5 local enviuronemnts requirement.
+In this instance we are going to use vagrant. This is a system that can be used for configuration managent mainly focused towards localacreageelopment. We also use ansible for system configuration since it is pretty simple tool to get get aquantited with.
+
+Weacreageelop use the machine centos 8. This system is to be configured to run a web application and some service required to for the teaching assisment.
+
+The build steps are pretty simple to follow when reviewing the ansible playbook.
+
+It is possible either use a ISO system in order to provision and test the config or alternatively use vagrant then port to your local environment.
+
+If you choose to use vagrant you can do the following. Run the system with --no-provision. This should bring both system up at which point it should be possible to run provision which should detect all systems.
+
+Once this run is done which is a bit messy at the momment it is then possible to perform  start performing systems configuration. We start by configuring the currenlty existing web application.
+
+The process is pretty straight forwards it involves configuring the database and then vulnrable application feature. I believe once this is done all what is required is to disable the http interface of the system. Since mostly the application would be access by https.
+
+That is pretty much it for system. The application initial interface would be the https interface.
+
+
+
+
+                                                                                                                                                                                                        
+┌──(m3rl1n㉿TaRDiS-AttAcK-c0ns0l3)-[~]
+└─$ curl --cert http-client.pem --cert-type PEM --key http-client.key --key-type PEM https://192.168.56.10/openemr-5_0_1_3/ -vvvv                                                                  56 ⨯
+*   Trying 192.168.56.10:443...
+* Connected to 192.168.56.10 (192.168.56.10) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*  CAfile: /etc/ssl/certs/ca-certificates.crt
+*  CApath: /etc/ssl/certs
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.3 (OUT), TLS alert, unknown CA (560):
+* SSL certificate problem: unable to get local issuer certificate
+* Closing connection 0
+curl: (60) SSL certificate problem: unable to get local issuer certificate
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the web page mentioned above.
+                                                                                                                                                                                                        
+┌──(m3rl1n㉿TaRDiS-AttAcK-c0ns0l3)-[~]
+└─$ curl --cert http-client.pem --cert-type PEM --key http-client.key --key-type PEM https://192.168.56.10/openemr-5_0_1_3/ -vvvv                                                                  60 ⨯
+*   Trying 192.168.56.10:443...
+* Connected to 192.168.56.10 (192.168.56.10) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*  CAfile: /etc/ssl/certs/ca-certificates.crt
+*  CApath: /etc/ssl/certs
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.3 (OUT), TLS alert, unknown CA (560):
+* SSL certificate problem: unable to get local issuer certificate
+* Closing connection 0
+curl: (60) SSL certificate problem: unable to get local issuer certificate
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the web page mentioned above.
+                                                                                                                                                                                                        
+┌──(m3rl1n㉿TaRDiS-AttAcK-c0ns0l3)-[~]
+└─$ curl --cert http-client.pem --cert-type PEM --key http-client.key --key-type PEM https://192.168.56.10/openemr-5_0_1_3/ --cacert ca.pem -vvvv                                                  60 ⨯
+*   Trying 192.168.56.10:443...
+* Connected to 192.168.56.10 (192.168.56.10) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*  CAfile: ca.pem
+*  CApath: /etc/ssl/certs
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.3 (IN), TLS handshake, CERT verify (15):
+* TLSv1.3 (IN), TLS handshake, Finished (20):
+* TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+* SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384
+* ALPN, server accepted to use http/1.1
+* Server certificate:
+*  subject: CN=acreage
+*  start date: Dec 12 02:18:32 2021 GMT
+*  expire date: Dec 13 02:18:32 2022 GMT
+*  subjectAltName: host "192.168.56.10" matched cert's IP address!
+*  issuer: CN=Dite Intermediate http CA
+*  SSL certificate verify ok.
+> GET /openemr-5_0_1_3/ HTTP/1.1
+> Host: 192.168.56.10
+> User-Agent: curl/7.79.1
+> Accept: */*
+> 
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* old SSL session ID is stale, removing
+* TLSv1.3 (IN), TLS handshake, Request CERT (13):
+* TLSv1.3 (OUT), TLS handshake, Certificate (11):
+* TLSv1.3 (OUT), TLS handshake, CERT verify (15):
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+* TLSv1.3 (IN), TLS alert, internal error (592):
+* OpenSSL SSL_read: error:14094438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error, errno 0
+* Closing connection 0
+curl: (56) OpenSSL SSL_read: error:14094438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error, errno 0
+                                                                                                                                                                                                        
+┌──(m3rl1n㉿TaRDiS-AttAcK-c0ns0l3)-[~]
+└─$ curl --cert http-client.pem --cert-type PEM --key http-client.key --key-type PEM https://192.168.56.10/openemr-5_0_1_3/ --cacert ca.pem -vvvv                                                  56 ⨯
+*   Trying 192.168.56.10:443...
+* Connected to 192.168.56.10 (192.168.56.10) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*  CAfile: ca.pem
+*  CApath: /etc/ssl/certs
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.3 (IN), TLS handshake, CERT verify (15):
+* TLSv1.3 (IN), TLS handshake, Finished (20):
+* TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+* SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384
+* ALPN, server accepted to use http/1.1
+* Server certificate:
+*  subject: CN=acreage
+*  start date: Dec 12 02:18:32 2021 GMT
+*  expire date: Dec 13 02:18:32 2022 GMT
+*  subjectAltName: host "192.168.56.10" matched cert's IP address!
+*  issuer: CN=Dite Intermediate http CA
+*  SSL certificate verify ok.
+> GET /openemr-5_0_1_3/ HTTP/1.1
+> Host: 192.168.56.10
+> User-Agent: curl/7.79.1
+> Accept: */*
+> 
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* old SSL session ID is stale, removing
+* TLSv1.3 (IN), TLS handshake, Request CERT (13):
+* TLSv1.3 (OUT), TLS handshake, Certificate (11):
+* TLSv1.3 (OUT), TLS handshake, CERT verify (15):
+* TLSv1.3 (OUT), TLS handshake, Finished (20):
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* old SSL session ID is stale, removing
+* TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):
+* old SSL session ID is stale, removing
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 302 Found
+< Date: Mon, 13 Dec 2021 02:56:30 GMT
+< Server: Apache/2.4.37 (centos) OpenSSL/1.1.1g
+< X-Powered-By: PHP/7.2.24
+< Location: setup.php?site=default
+< Content-Length: 0
+< Content-Type: text/html; charset=UTF-8
+< 
+* Connection #0 to host 192.168.56.10 left intact
+                                                                                                                                                                                                        
+┌──(m3rl1n㉿TaRDiS-AttAcK-c0ns0l3)-[~]
+└─$ curl --cert http-client.pem --cert-type PEM --key http-client.key --key-type PEM https://192.168.56.10/openemr-5_0_1_3/  -vvvv               
+*   Trying 192.168.56.10:443...
+* Connected to 192.168.56.10 (192.168.56.10) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*  CAfile: /etc/ssl/certs/ca-certificates.crt
+*  CApath: /etc/ssl/certs
+* TLSv1.3 (OUT), TLS handshake, Client hello (1):
+* TLSv1.3 (IN), TLS handshake, Server hello (2):
+* TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):
+* TLSv1.3 (IN), TLS handshake, Certificate (11):
+* TLSv1.3 (OUT), TLS alert, unknown CA (560):
+* SSL certificate problem: unable to get local issuer certificate
+* Closing connection 0
+curl: (60) SSL certificate problem: unable to get local issuer certificate
+More details here: https://curl.se/docs/sslcerts.html
+
+curl failed to verify the legitimacy of the server and therefore could not
+establish a secure connection to it. To learn more about this situation and
+how to fix it, please visit the web page mentioned above.
+                                                                                                                                                                                                        
+┌──(m3rl1n㉿TaRDiS-AttAcK-c0ns0l3)-[~]
+└─$                            
+
+import http.client
+import json
+import ssl
+ 
+# Defining certificate related stuff and host of endpoint
+certificate_file = '/home/m3rl1n/http-client.pem'
+certificate_secret= '/home/m3rl1n/http-client.key'
+host = 'example.com'
+ 
+# Defining parts of the HTTP request
+request_url='/a/http/url'
+request_headers = {
+    'Content-Type': 'application/json'
+}
+request_body_dict={
+    'Temperature': 38,
+    'Humidity': 80
+}
+ 
+# Define the client certificate settings for https connection
+context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+context.load_cert_chain(certfile=certificate_file, password=certificate_secret)
+ 
+# Create a connection to submit HTTP requests
+connection = http.client.HTTPSConnection(host, port=443, context=context)
+ 
+# Use connection to submit a HTTP POST request
+connection.request(method="POST", url=request_url, headers=request_headers, body=json.dumps(request_body_dict))
+ 
+# Print the HTTP response from the IOT service endpoint
+response = connection.getresponse()
+print(response.status, response.reason)
+data = response.read()
+print(data)

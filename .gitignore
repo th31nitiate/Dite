@@ -1,1 +1,6 @@
 .vagrant/
+v5_0_1_3.tar.gz
+openemr-5_0_1_3/
+ca-*
+ca.pem
+cafile.pem

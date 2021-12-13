@@ -1,56 +1,81 @@
 ---
 
 
-    - name: Case insensitive password string match
+    - name: Geneatre SSH CA publickey for PKI based ssh authentication
       ansible.builtin.expect:
-        command: "/usr/bin/ssh-keygen -f {{ pki_dir }}/ca-ssh-certificate.key -y" # > {{ ssh_dir }}/ca-ssh-certificate.pub"
+        command: "/usr/bin/ssh-keygen -f {{ pki_dir }}/ca-ssh.key -y" # > {{ ssh_dir }}/ca-ssh.pub"
         responses:
-          (?i)passphrase:: "TestValue"
+          (?i)passphrase:: "{{ ca_passphrase}}"
       register: ssh_ca_cert
 
-    - name: Write certificate file on dev
+    - name: Write SSH certificate file 
       copy:
-        dest: "{{ ssh_dir }}/ca-ssh-certificate.pub"
+        dest: "{{ ssh_dir }}/ca-ssh.pub"
         content: "{{ ssh_ca_cert.stdout_lines[1] }}"
-      delegate_to: dev.o3h.local
+        setype: sshd_key_t
+      delegate_to: 192.168.56.10
       run_once: true
       when: ssh_ca_cert is changed
 
 
-    - name: Create directory {{ pki_dir }}
-      ansible.builtin.file:
-        path: "{{ ssh_dir }}/ca-ssh-certificate.key"
-        owner: root
-        group: root
-        mode: '0600'
+    #- name: Create directory {{ pki_dir }}
+    #  ansible.builtin.file:
+    #    path: "{{ ssh_dir }}/ca-ssh.key"
+    #    owner: root
+    #    group: root
+    #    mode: '0600'
 
-    - name: Add default docker user
-      ansible.builtin.user:
-        name: dockerdev
-        comment: Account used for local docker development
-        uid: 1040
-        shell: /bin/bash
+    - name: Check whether Docker certificate exists
+      stat:
+        path: "{{ pki_dir }}/dockerdev"
+      delegate_to: 192.168.56.10
+      run_once: true
+      register: dockerdev_exists
 
-    - name: Generate an OpenSSH keypair with the default values (4096 bits, rsa)
+
+    - name: Generate an OpenSSH keypair for the dockerdev user
       community.crypto.openssh_keypair:
         path: "{{ ssh_dir }}/dockerdev"
+      when: docker_exists.stat.exists != True
 
 
-#ssh-keygen -f /etc/pki/o3h_certs/ca-ssh-certificate.key -y > private.pub
+#ssh-keygen -f /etc/pki/o3h_certs/ca-ssh.key -y > private.pub
 
-    - name: Case insensitive password string match
+    - name: Generate SSH key certificate for the dockerdev user
       ansible.builtin.expect:
-        command: /usr/bin/ssh-keygen -s {{ ssh_dir }}/ca-ssh-certificate.key -I 'edcbb' -z '0003' -n dockerdev {{ ssh_dir }}/dockerdev.pub
+        command: /usr/bin/ssh-keygen -s {{ pki_dir }}/ca-ssh.key -I 'edcbb' -z '0003' -n dockerdev {{ ssh_dir }}/dockerdev.pub
         responses:
-          (?i)passphrase:: "TestValue"
+          (?i)passphrase:: "{{ ca_passphrase}}"
       register: ssh_cert
 
-    - name: Write certificate file on dev
-      copy:
-        dest: "{{ ssh_dir }}/user-ssh-certificate.pub"
-        content: "{{ ssh_cert.stdout_lines[1] }}"
-      delegate_to: dev.o3h.local
-      run_once: true
-      when: ssh_cert is changed
+    - name: Change file ownership, group and permissions for the dockerdev user
+      ansible.builtin.file:
+        path: "{{ ssh_dir }}/{{ item }}"
+        owner: root
+        group: root
+        setype: sshd_key_t
+        mode: '0644'
+      when: inventory_hostname == "192.168.56.10" #Might be better check is file exists
+      with_items:
+        - ca-ssh.pem
+        - ca-ssh.pub
+        - dockerdev
+        - dockerdev-cert.pub
+        - dockerdev.pub
+
+    - name: Allow 'dockerdev' group to have passwordless sudo
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        line: 'dockerdev ALL=!/bin/docker'
+        validate: visudo -cf %s
+
+    - name: Allow 'dockerdev' group to have passwordless sudo
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        line: 'dockerdev ALL=NOPASSWD: /bin/docker system dial-stdio'
+        validate: visudo -cf %s
+
 
 #ssh -o CertificateFile=id_ssh_rsa-cert.pub -i /tmp/id_ssh_rsa vagrant@localhost

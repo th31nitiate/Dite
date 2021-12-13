@@ -1,5 +1,5 @@
 ---
-    - name: Create directory {{ pki_dir }}
+    - name: Create system PKI directory {{ pki_dir }}
       ansible.builtin.file:
         path: "{{ pki_dir }}"
         owner: root
@@ -7,21 +7,46 @@
         mode: '1644'
         state: directory
 
+    - name: Create system TEMP PKI directory in opt
+      ansible.builtin.file:
+        path: "/opt/temp-pki-cache"
+        owner: root
+        group: root
+        mode: '1644'
+        state: directory
+
+    - name: Creating OpenEMR web application directory
+      ansible.builtin.file:
+        path: "/var/www/html/{{ item }}"
+        state: directory
+        mode: '0755'
+      with_items:
+        - private
+        - private/notes
+
+    - name: Installing dependicies for ansible openssl
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - epel-release
+        - python3-cryptography
+        - python3-pexpect.noarch
 
 
-#/etc/ssh/ca-ssh-certificate.key
+#/etc/ssh/ca-ssh.key
 ### Creat root CA
-    - name: Create private key with password protection
+    - name: Create Root CA private key with password protection
       community.crypto.openssl_privatekey:
-        path: "{{ pki_dir }}/ca-certificate.key"
+        path: "{{ pki_dir }}/ca.key"
         cipher: auto # Could update exampel
-        passphrase: "{{ secret_ca_passphrase }}"
+        passphrase: "{{ ca_passphrase }}"
 
-    - name: Create certificate signing request (CSR) for CA certificate
+    - name: Create certificate signing request (CSR) for Root CA certificate
       community.crypto.openssl_csr_pipe:
-        privatekey_path: "{{ pki_dir }}/ca-certificate.key"
-        privatekey_passphrase: "{{ secret_ca_passphrase }}"
-        common_name: "Ansible CA"
+        privatekey_path: "{{ pki_dir }}/ca.key"
+        privatekey_passphrase: "{{ ca_passphrase }}"
+        common_name: "Dite CA"
         use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
         basic_constraints:
           - 'CA:TRUE'
@@ -33,29 +58,29 @@
 
     - name: Create self-signed CA certificate from CSR
       community.crypto.x509_certificate:
-        path: "{{ pki_dir }}/ca-certificate.pem"
+        path: "{{ pki_dir }}/ca.pem"
         csr_content: "{{ ca_csr.csr }}"
-        privatekey_path: "{{ pki_dir }}/ca-certificate.key"
-        privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        privatekey_path: "{{ pki_dir }}/ca.key"
+        privatekey_passphrase: "{{ ca_passphrase }}"
         provider: selfsigned
 
 ### Create intermediate CA
 
-    - name: "Create {{ item }} private key with password protection"
+    - name: "Create Intermediate CA private key with password protection"
       community.crypto.openssl_privatekey:
-        path: "{{ pki_dir }}/ca-{{ item }}-certificate.key"
+        path: "{{ pki_dir }}/ca-{{ item }}.key"
         cipher: auto # Could update exampel
-        passphrase: "{{ secret_ca_passphrase }}"
+        passphrase: "{{ ca_passphrase }}"
       with_items:
         - http
         - ssh
         - docker
 
-    - name: "Create {{ item }} certificate signing request (CSR) for CA certificate"
+    - name: "Create certificate signing request (CSR) for Intermediate CA's certificate"
       community.crypto.openssl_csr_pipe:
-        privatekey_path: "{{ pki_dir }}/ca-{{ item }}-certificate.key"
-        privatekey_passphrase: "{{ secret_ca_passphrase }}"
-        common_name: "Ansible CA {{ item }}"
+        privatekey_path: "{{ pki_dir }}/ca-{{ item }}.key"
+        privatekey_passphrase: "{{ ca_passphrase }}"
+        common_name: "Dite Intermediate {{ item }} CA"
         use_common_name_for_san: false  # since we do not specify SANs, don't use CN as a SAN
         basic_constraints:
           - 'CA:TRUE'
@@ -69,82 +94,81 @@
         - ssh
         - docker
 
-    - name: "Create self-signed {{ item.item }} in CA certificate from CSR"
+    - name: "Create signed Intermediate CA certificates from the CSR"
       community.crypto.x509_certificate:
-        path: "{{ pki_dir }}/ca-{{ item.item }}-certificate.pem"
+        path: "{{ item.privatekey | replace('key','pem') }}"
         csr_content: "{{ item.csr }}"
         provider: ownca
-        ownca_path: "{{ pki_dir }}/ca-certificate.pem"
-        ownca_privatekey_path: "{{ pki_dir }}/ca-certificate.key"
-        ownca_privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        ownca_path: "{{ pki_dir }}/ca.pem"
+        ownca_privatekey_path: "{{ pki_dir }}/ca.key"
+        ownca_privatekey_passphrase: "{{ ca_passphrase }}"
         ownca_not_after: +365d  # valid for one year
         ownca_not_before: "-1d"  # valid since yesterday
       with_items: "{{ ca_csr.results }}"
 
-
-    - name: read files
+    - name: Read in the nessoary ca file to create a certitificate bundle
       command: "awk 1 {{ hostsfiles | join(' ') }}"
       register: cert_bundle
-    - name: create hosts file
+
+    - name: Write cert bundle to disk {{ pki_dir }}/ca_cert_bundle.pem
       copy:
         dest: "{{ pki_dir }}/ca_cert_bundle.pem"
         content: "{{ cert_bundle.stdout_lines | unique |join('\n') }}"
 
 
-    #- name: Write certificate file on dev
+    #- name: Write certificate file onacreage
     #  copy:
     #    dest: "{{ pki_dir }}/web_cert_bundle.pem"
     #    content: "{{ ca_csr.results[0].public_key }}"
-    #  delegate_to: dev.o3h.local
+    #  delegate_to: 192.168.56.10
     #  run_once: true
     #  when: ca_csr is changed
 
-    - name: Copy CA certicates to trust anchor 
+
+    # Consider symlinking
+    - name: Copy CA certicates to trust anchor, on system 
       copy:
         src: "{{ pki_dir }}/{{ item }}"
         dest: "/usr/share/pki/ca-trust-source/anchors/{{ item }}"
         remote_src: yes
       with_items:
-        - "ca-certificate.pem"
-        - "ca-http-certificate.pem"
-        - "ca-docker-certificate.pem"
+        - "ca.pem"
+        - "ca-http.pem"
+        - "ca-docker.pem"
       notify:
         - Update trust store
 
-    - name: Copy SSH certicates to docker directory 
+    #Double check this value.
+    - name: Copy SSH certicates to SSH directory 
       copy:
         src: "{{ pki_dir }}/{{ item }}"
         dest: "{{ ssh_dir }}/{{ item }}"
         remote_src: yes
       with_items:
-        - "ca-certificate.pem"
-        - "ca-ssh-certificate.pem"
-      notify:
-        - Restart docker
-
-#Need to run after update anchors after
+        - "ca.pem"
+        - "ca-ssh.pem"
 
 ### Create x509 general certifictes
 
-    - name: Create private key for new certificate on dev
+    - name: Create private key for new certificate onacreage
       community.crypto.openssl_privatekey:
         path: "{{ pki_dir }}/certificate.key"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
 
     - name: Create certificate signing request (CSR) for new certificate
       community.crypto.openssl_csr_pipe:
         privatekey_path: "{{ pki_dir }}/certificate.key"
         subject_alt_name:
-          - "DNS:docs.ansible.com"
-      delegate_to: dev.o3h.local
+          - "DNS: acreage.dite.local"
+      delegate_to: 192.168.56.10
       run_once: true
       register: csr
 
     - name: Check whether certificate exists
       stat:
         path: "{{ pki_dir }}/certificate.pem"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: certificate_exists
 
@@ -152,7 +176,7 @@
       slurp:
         src: "{{ pki_dir }}/certificate.pem"
       when: certificate_exists.stat.exists
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: certificate
 
@@ -161,108 +185,108 @@
         content: "{{ (certificate.content | b64decode) if certificate_exists.stat.exists else omit }}"
         csr_content: "{{ csr.csr }}"
         provider: ownca
-        ownca_path: "{{ pki_dir }}/ca-certificate.pem"
-        ownca_privatekey_path: "{{ pki_dir }}/ca-certificate.key"
-        ownca_privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        ownca_path: "{{ pki_dir }}/ca.pem"
+        ownca_privatekey_path: "{{ pki_dir }}/ca.key"
+        ownca_privatekey_passphrase: "{{ ca_passphrase }}"
         ownca_not_after: +365d  # valid for one year
         ownca_not_before: "-1d"  # valid since yesterday
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: certificate
 
-    - name: Write certificate file on dev
+    - name: Write certificate file onacreage
       copy:
         dest: "{{ pki_dir }}/certificate.pem"
         content: "{{ certificate.certificate }}"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       when: certificate is changed
 
 #### Create web certificates
 
-    - name: Create private key for new certificate on dev
+    - name: Create private key for HTTP sevice onacreage
       community.crypto.openssl_privatekey:
-        path: "{{ pki_dir }}/certificate-http.key"
-      delegate_to: dev.o3h.local
+        path: "{{ pki_dir }}/http.key"
+      delegate_to: 192.168.56.10
       run_once: true
 
-    - name: Create certificate signing request (CSR) for new certificate
+    - name: Create certificate signing request (CSR) for new HTTP certificate
       community.crypto.openssl_csr_pipe:
-        privatekey_path: "{{ pki_dir }}/certificate-http.key"
-        common_name: DNS:dev.o3h.local
+        privatekey_path: "{{ pki_dir }}/http.key"
+        common_name: acreage
         subject_alt_name:
-          - "DNS:dev.o3h.local"
-          - "DNS:dev.o3h"
-      delegate_to: dev.o3h.local
+          - "DNS: acreage.dite.local"
+          - "DNS: dite.local"
+          - "IP:192.168.56.10"
+      delegate_to: 192.168.56.10
       run_once: true
       register: csr_web
 
-    - name: Check whether certificate exists
+    - name: Check whether HTTP certificate exists
       stat:
-        path: "{{ pki_dir }}/certificate-http.pem"
-      delegate_to: dev.o3h.local
+        path: "{{ pki_dir }}/http.pem"
+      delegate_to: 192.168.56.10
       run_once: true
-      register: certificate_web_exists
+      register: http_exists
 
-    - name: Read existing  wevbcertificate if exists
+    - name: Read existing HTTP certificate if exists
       slurp:
-        src: "{{ pki_dir }}/certificate-http.pem"
-      when: certificate_web_exists.stat.exists
-      delegate_to: dev.o3h.local
+        src: "{{ pki_dir }}/http.pem"
+      when: http_exists.stat.exists
+      delegate_to: 192.168.56.10
       run_once: true
-      register: certificate_web
+      register: http
 
-    - name: Sign certificate with our CA
+    - name: Sign HTTP certificate with our CA
       community.crypto.x509_certificate_pipe:
-        content: "{{ (certificate_web.content | b64decode) if certificate_web_exists.stat.exists else omit }}"
+        content: "{{ (http.content | b64decode) if http_exists.stat.exists else omit }}"
         csr_content: "{{ csr_web.csr }}"
         provider: ownca
-        ownca_path: "{{ pki_dir }}/ca-http-certificate.pem"
-        ownca_privatekey_path: "{{ pki_dir }}/ca-http-certificate.key"
-        ownca_privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        ownca_path: "{{ pki_dir }}/ca-http.pem"
+        ownca_privatekey_path: "{{ pki_dir }}/ca-http.key"
+        ownca_privatekey_passphrase: "{{ ca_passphrase }}"
         ownca_not_after: +365d  # valid for one year
         ownca_not_before: "-1d"  # valid since yesterday
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
-      register: certificate_web_cert
+      register: http_cert
 
-    - name: Write certificate file on dev
+    - name: Write HTTP certificate file onacreage
       copy:
-        dest: "{{ pki_dir }}/certificate-http.pem"
-        content: "{{ certificate_web_cert.certificate }}"
-      delegate_to: dev.o3h.local
+        dest: "{{ pki_dir }}/http.pem"
+        content: "{{ http_cert.certificate }}"
+      delegate_to: 192.168.56.10
       run_once: true
-      when: certificate_web_cert is changed
+      when: http_cert is changed
 
 #### create Client Auth certificate
 
-    - name: Create private key for new certificate on dev
+    - name: Create private key for HTTP Client certificate
       community.crypto.openssl_privatekey:
         path: "{{ notes_web_dir }}/http-client.key"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
 
-    - name: Create certificate signing request (CSR) for new certificate
+    - name: Create certificate signing request (CSR) for new HTTP Client certificate
       community.crypto.openssl_csr_pipe:
         privatekey_path: "{{ notes_web_dir }}/http-client.key"
-        common_name: email:webadmin@o3h.local
+        common_name: email:admin@dite.local
         subject_alt_name:
-          - "email:webadmin.o3h.local"
-          - "IP:192.168.56.10"
+          - "email:admin@dite.local"
         keyUsage:
           - nonRepudiation
           - digitalSignature
           - keyEncipherment
         extendedKeyUsage:
           - "clientAuth"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: csr_client
 
-    - name: Check whether certificate exists
+    - name: Check whether HTTP Client certificate exists
       stat:
         path: "{{ notes_web_dir }}/http-client.pem"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: certificate_client_exists
 
@@ -270,7 +294,7 @@
       slurp:
         src: "{{ notes_web_dir }}/http-client.pem"
       when: certificate_client_exists.stat.exists
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: certificate_client
 
@@ -279,39 +303,39 @@
         content: "{{ (certificate_client.content | b64decode) if certificate_client_exists.stat.exists else omit }}"
         csr_content: "{{ csr_client.csr }}"
         provider: ownca
-        ownca_path: "{{ pki_dir }}/ca-http-certificate.pem"
-        ownca_privatekey_path: "{{ pki_dir }}/ca-http-certificate.key"
-        ownca_privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        ownca_path: "{{ pki_dir }}/ca-http.pem"
+        ownca_privatekey_path: "{{ pki_dir }}/ca-http.key"
+        ownca_privatekey_passphrase: "{{ ca_passphrase }}"
         ownca_not_after: +365d  # valid for one year
         ownca_not_before: "-1d"  # valid since yesterday
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: certificate_client_cert
 
-    - name: Write certificate file on dev
+    - name: Write certificate file onacreage
       copy:
         dest: "{{ notes_web_dir }}/http-client.pem"
         content: "{{ certificate_client_cert.certificate }}"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       when: certificate_client_cert is changed
 
 
-#### Create web certificates
+    #### Create Docker certificates
 
-    - name: Create private key for new certificate on dev
+    - name: Create private key for new Docker certificate
       community.crypto.openssl_privatekey:
         path: "{{ pki_dir }}/docker.key"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
 
-    - name: Create certificate signing request (CSR) for new certificate
+    - name: Create certificate signing request (CSR) for new Docker certificate
       community.crypto.openssl_csr_pipe:
         privatekey_path: "{{ pki_dir }}/docker.key"
         common_name: DNS:docker
         subject_alt_name:
-          - "DNS:docker.dev.o3h.local"
-          - "DNS:docker.dev.o3h"
+          - "DNS:docker.acreage.dite.local"
+          - "DNS:acreage.dite.local"
           - "IP:192.168.56.10"
         keyUsage:
           - nonRepudiation
@@ -320,44 +344,44 @@
         extendedKeyUsage:
           - "serverAuth"
           - "clientAuth"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: docker_csr
 
-    - name: Check whether certificate exists
+    - name: Check whether Docker certificate exists
       stat:
         path: "{{ pki_dir }}/docker.pem"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: docker_exists
 
-    - name: Read existing  wevbcertificate if exists
+    - name: Read existing Docker certificate if exists
       slurp:
         src: "{{ pki_dir }}/docker.pem"
       when: docker_exists.stat.exists
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: docker
 
-    - name: Sign certificate with our CA
+    - name: Sign Docker certificate with our CA
       community.crypto.x509_certificate_pipe:
         content: "{{ (docker.content | b64decode) if docker_exists.stat.exists else omit }}"
         csr_content: "{{ docker_csr.csr }}"
         provider: ownca
-        ownca_path: "{{ pki_dir }}/ca-docker-certificate.pem"
-        ownca_privatekey_path: "{{ pki_dir }}/ca-docker-certificate.key"
-        ownca_privatekey_passphrase: "{{ secret_ca_passphrase }}"
+        ownca_path: "{{ pki_dir }}/ca-docker.pem"
+        ownca_privatekey_path: "{{ pki_dir }}/ca-docker.key"
+        ownca_privatekey_passphrase: "{{ ca_passphrase }}"
         ownca_not_after: +365d  # valid for one year
         ownca_not_before: "-1d"  # valid since yesterday
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       register: docker
 
-    - name: Write certificate file on dev
+    - name: Write Docker certificate file 
       copy:
         dest: "{{ pki_dir }}/docker.pem"
         content: "{{ docker.certificate }}"
-      delegate_to: dev.o3h.local
+      delegate_to: 192.168.56.10
       run_once: true
       when: docker is changed
       notify:
@@ -368,6 +392,32 @@
         src: "{{ pki_dir }}/{{ item }}"
         dest: "/var/www/html/private/notes/{{ item }}"
         remote_src: yes
+        mode: '0644'
       with_items:
-        - "ca-certificate.pem"
-        - "ca-web-certificate.pem"
+        - "ca.pem"
+        - "ca-http.pem"
+      notify:
+        - Update trust store
+
+    - name: Generate PKCS#12 file
+      community.crypto.openssl_pkcs12:
+        action: export
+        path: "{{ notes_web_dir }}/web.p12"
+        friendly_name: admin
+        privatekey_path: "{{ notes_web_dir }}/http-client.key"
+        certificate_path: "{{ notes_web_dir }}/http-client.pem"
+        other_certificates_parse_all: true
+        other_certificates:
+          - "{{ notes_web_dir }}/ca.pem"
+          - "{{ notes_web_dir }}/ca-http.pem"
+        state: present
+        mode: '0644'
+
+    - name: Write CA certifctae to file temp cache
+      copy:
+        dest: "{{ pki_dir }}/ca.key"
+        content: "/opt/temp-pki-cache/ca.key"
+        mode: '0644'
+        setype:
+      delegate_to: 192.168.56.10
+      run_once: true
