@@ -3,7 +3,7 @@
 
 
 Vagrant.configure("2") do |config|
-  config.vm.synced_folder '.', '/vagrant', disabled: true
+  config.vm.synced_folder '.', '/srv/hosts', disabled: false
   config.ssh.insert_key = false
 
   config.vm.provider :virtualbox do |v|
@@ -13,8 +13,8 @@ Vagrant.configure("2") do |config|
 
   # Define four VMs with static private IP addresses.
   boxes = [
-    { :name => "acreage", :ip => "192.168.56.10",  :os => "centos/8"},
-    { :name => "facet", :ip => "192.168.56.11", :os => "centos/8"},
+  #{ :name => "acreage", :ip => "192.168.56.10",  :os => "centos/8"},
+    { :name => "facet", :ip => "192.168.56.11", :os => "geerlingguy/centos8"},
   ]
 
   # Provision each of the VMs.
@@ -28,11 +28,6 @@ Vagrant.configure("2") do |config|
 
     end
 
-    config.vm.provision "ansible" do |ansible|
-      ansible.playbook = "playbook.yml"
-      ansible.inventory_path = "inventory"
-      ansible.verbose = "v"
-      ansible.limit = "all"
-    end
+    config.vm.provision "shell", path: "post-provision.sh"
   end
 end

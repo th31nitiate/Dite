@@ -1,0 +1,55 @@
+## Ensure CA matches requirements
+
+# CA requirements
+
+1 CA cert with root privs
+
+1 CA intermediate
+
+2 web certificates
+
+        common_name: acreage
+        subject_alt_name:
+          - "DNS:acreage.dite.local DNS:dite.local IP:192.168.56.10"
+
+
+HTTP TLS auth key
+        common_name: email:admin@dite.local
+        subject_alt_name:
+          - "email:admin@dite.local"
+        keyUsage:
+          - nonRepudiation
+          - digitalSignature
+          - keyEncipherment
+        extendedKeyUsage:
+          - "clientAuth"
+
+
+
+1 docker certificates
+
+        common_name: DNS:docker
+        subject_alt_name:
+          - "DNS:docker.acreage.dite.local DNS:acreage.dite.local IP:192.168.56.10"
+        keyUsage:
+          - nonRepudiation
+          - digitalSignature
+          - keyEncipherment
+        extendedKeyUsage:
+          - "serverAuth"
+          - "clientAuth"
+
+
+
+1 p12 certificates
+
+
+#
+#Consider moving CA certificate into Dite_CA folder
+#[root@facet ~]# ls /etc/dite_pki/ca/
+#ca-root.csr           ca-signing-chain.pem  Dite_CA/              Dite_CA.crt           Intermediate_CA/
+#[root@facet ~]# ls /etc/dite_pki/ca/
+#ca-root.csr           ca-signing-chain.pem  Dite_CA/              Dite_CA.crt           Intermediate_CA/
+#[root@facet ~]# ls /etc/dite_pki/ca/Intermediate_CA/
+#db  Intermediate_CA.crt  Intermediate_CA.csr  private
+#[root@facet ~]# ls /etc/dite_pki/ca/Intermediate_CA/
