@@ -46,7 +46,7 @@ yum-config-manager \
 #
 dnf update -y
 #
-dnf install -y epel-release python3-cryptography python3-pexpect.noarch python36.x86_64 python3-firewall python3-pip  epel-release python3-cryptography docker-ce python3-pexpect.noarch docker-ce-cli containerd.io open-vm-tools #python3-docker.noarch
+dnf install -y epel-release python3-cryptography python3-pexpect.noarch python36.x86_64 python3-firewall python3-pip  epel-release python3-cryptography docker-ce python3-pexpect.noarch docker-ce-cli containerd.io open-vm-tools expect #python3-docker.noarch
 #
 echo "Install packages required for OpenEMR"
 dnf install -y python36.x86_64 python3-firewall python3-pip python3-cryptography  php-mbstring mariadb-server mariadb php-xml.x86_64 python3-PyMySQL.noarch python3-libselinux.x86_64 epel-release php-json.x86_64 python3-pexpect.noarch httpd php php-mysqlnd mod_ssl
@@ -54,13 +54,11 @@ dnf install -y python36.x86_64 python3-firewall python3-pip python3-cryptography
 cp -rf /srv/hosts/pki/etc/* $CONFIG
 
 systemctl start docker
+cp -rf /srv/hosts/config/daemon.json /etc/docker/daemon.json
+systemctl restart docker
 systemctl enable docker
 ##
 ##
-systemctl restart httpd
-systemctl enable httpd
-
-cp -rf /srv/hosts/config/daemon.json /etc/docker/daemon.json
 #
 ##
 ### 1. Create Root CA
@@ -280,50 +278,38 @@ cp $CA/ca-signing-chain.pem /usr/share/pki/ca-trust-source/anchors/
 #
 ###Generate SSH public key
 
-expect "Enter passphrase:"
-send "654321"
-/usr/bin/ssh-keygen -f $CA_SIGNING_PATH/private//Intermediate_CA.key -y
-expect "Enter passphrase:"
-send "654321"
 
-/usr/bin/expect <<EOD
-spawn /usr/bin/ssh-keygen -f $CA_SIGNING_PATH/private/Intermediate_CA.key -y > /tmp/sshkey
+cp -rf /srv/hosts/pki/id_rsa* /etc/dite_pki/
+
+/usr/bin/expect <<EOD | grep ssh-rsa > /etc/dite_pki/ca-ssh.pub
+spawn /usr/bin/ssh-keygen -f $CA_SIGNING_PATH/private/Intermediate_CA.key -y
 expect "Enter passphrase:"
 send "654321\n"
 expect eof
 EOD
 
 
-/usr/bin/expect <<EOD | grep ssh-rsa > /tmp/sshfile
-spawn /usr/bin/ssh-keygen -f $CA_SIGNING_PATH/private//Intermediate_CA.key -y
+/usr/bin/expect <<EOD
+spawn /usr/bin/ssh-keygen -s $CA_SIGNING_PATH/private/Intermediate_CA.key -I 'edcbb' -z 0003 -n root /etc/dite_pki/id_rsa.pub
 expect "Enter passphrase:"
-send "$1\n"
+send "654321\n"
 expect eof
 EOD
 
+cp -rf /srv/hosts/pki/id_rsa* /etc/dite_pki/
+
+systemctl restart httpd
+systemctl enable httpd
 
 
+#bersekr bleach eclipse cicada
 
 #
-#/usr/bin/ssh-keygen -s $CA_SIGNING_PATH/private/Dite_Intermediate_CA.key -I 'edcbb' -z '0003' -n dockerdev $CA/dockerdev.pub
+#/usr/bin/ssh-keygen -s $CA_SIGNING_PATH/private/Dite_Intermediate_CA.key -I 'edcbb' -z '0003 -n dockerdev $CA/dockerdev.pub
 #expect "Enter passphrase:"
 #send "654321"
 
 
-#!/bin/bash
-OUT=/etc/dite_pki
-CA=$OUT/ca
-CERTS=$OUT/certs
-CONFIG=/etc/dite_pki/config
-CRL=$OUT/crl
-DEFAULT_DIST_NAME="/DC=re/DC=Dite Inc/O=Dite Intermediate CA"
-CA_KEY=$CA/Dite_CA/private/Dite_CA.key
-CA_ROOT_PATH=$CA/Dite_CA
-CA_SIGNING_PATH=$CA/Intermediate_CA
-
-/usr/bin/expect <<EOD
-spawn /usr/bin/ssh-keygen -f $CA_SIGNING_PATH/private//Intermediate_CA.key -y
-expect "Password"
-send "$1\n"
-expect eof
-EOD
+#A few tips to help make your recording successful:
+#
+#Try to speak slowly and as clearly as possible.Try to limit the background noise around you.Hold your device about 4 inches from your mouth.If you experience persistent issues, try recording without headphones.
