@@ -3,9 +3,9 @@
     "tls": true,
     "tlsverify": true,
     "tlscacert": "/etc/dite_pki/ca/ca-signing-chain.pem",
-    "tlscert": "/etc/dite_pki/docker.pem",
-    "tlskey": "/etc/dite_pki/docker.key",
+    "tlscert": "/etc/dite_pki/certs/docker.crt",
+    "tlskey": "/etc/dite_pki/certs/docker.key",
     "userland-proxy": false,
     "default-ulimit": "nofile=50:100",
-    "hosts": ["unix:///var/run/docker.sock", "tcp://192.168.56.11:5555"]
-  } 
+    "hosts": [ "tcp://192.168.56.10:5555"]
+  }

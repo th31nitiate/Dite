@@ -13,7 +13,7 @@ Vagrant.configure("2") do |config|
 
   # Define four VMs with static private IP addresses.
   boxes = [
-  #{ :name => "acreage", :ip => "192.168.56.10",  :os => "centos/8"},
+    { :name => "acreage", :ip => "192.168.56.10",  :os => "geerlingguy/centos8"},
     { :name => "facet", :ip => "192.168.56.11", :os => "geerlingguy/centos8"},
   ]
 
