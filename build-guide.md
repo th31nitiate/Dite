@@ -93,55 +93,62 @@ This file should provision of the required attributes for this running service.
 
 2. Enable network connectivity 
 
-The network configuration is quite simple point to point interface. It might needed to configure specific attributes to suit yout environment. Though the attribut that require ammending are slightly limited.
+The network configuration is quite simple point to point interface. It might be needed to configure specific attributes to suit your environment. Though the attribute that require amending are slightly limited.
 
 3. Prepare your environment including install the required OS
 
-If you use the provided image and vagrant then all should be funcationally well.
+If you use the provided image and vagrant then all should be functionally well. This should be an installation on CentOS 7 system with SSELinux disabled.
 
-4. Review the confiruation parameters for the playbooks to be run againest the system.
+4. Review the configuration parameters for the build script in within the variable to be run against the system.
 
-Review the playbook and follow comments to glean an accurte understand of the confiuration. Most of the build steps are defined within the playbook as documention with assosiated files.
+5. Run the build script in order to start the provisioning process.
 
-5. Run the provisioning process. 
 
-The most suitbale thing is to run vagrant up --no-provision and then perform vagrant provison once all hosts are up. 
+---====
 
-This reason for doing this is to ensure that the system it self runs using inventory. We have to ensure thet inventory when run againest a host that has not be create in virtual box as of yet.
+3. Prepare your environment including install the required OS
 
-![](images/configapp8.png)
+If you use the provided image and vagrant then all should be functionally well. This should be an installation on CentOS 7 system with SSELinux disabled.
+
+4. Review the configuration parameters for the build script in within the variable to be run against the system.
+
+5. Run the build script in order to start the provisioning process.
+
+
+---===
+
 
 6. Configure the web application service
 
 Verify application installation was successful
 
-![](images/configapp0.png)
+![](acreage/images/configapp0.png)
 
 Set the confgiuration for the application database settings and default credentials. The password which you choose for the data base in the ansible script should be funcational.
 
-![](images/configapp1.png)
+![](acreage/images/configapp1.png)
 
 Verify the SQL server has been configured correctly.
 
-![](images/configapp2.png)
+![](acreage/images/configapp2.png)
 
 At this stage ensure to click continue for all the steps until you reach the final page at which point you be redirected to the login page.
 
 Once the login page is visable login via the defualt credentials `admin:admin`.
 
-![](images/configapp3.png)
+![](acreage/images/configapp3.png)
 
 Configure the pateints portal by going to `administration > global > patient portal`, should be enabled. Verify that the online registration widget is also configured. 
 
-![](images/configapp4.png)
+![](acreage/images/configapp4.png)
 
 Once this is done it means that we should be to able to proceed to the portal page with out much complication. Clicking on the register link should take us to the following page.
 
-![](images/configapp5.png)
+![](acreage/images/configapp5.png)
 
 Once the application is configured as shown. It is possible to then proceed with the process of enabled SSL verification then restarting the apache2 service.
 
-![](images/configapp7.png)
+![](acreage/images/configapp7.png)
 
 7. Once configured accurately the service should be ready to funcation accordingly.
 

