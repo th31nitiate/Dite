@@ -1,7 +1,5 @@
 # Build Guide for Dite network 
 
-The systems' purpose is to teach the usage of different types of authentication methods based on PKI. In corporate environments there a multitude of requirements, one of the main requirements is to effectively encrypt data. This is at rest and in transit. Thus PKI technologies have to be implemented to make this possible. Strong authentication is import, so we also aim to show how TLS can be used in order ensure to strength public facing login interfaces. To enable the ability to think lateral it also important to understand how to evaluate one's privileges by using alternative authentication methods. Understanding these things would also enable an administrator to secure the infrastructure and reduce the attack surface by adding an extra barrier to application which contain vulnerabilities.
-
 ## Status
 
 **NTP**: Off  
@@ -32,11 +30,11 @@ The systems' purpose is to teach the usage of different types of authentication 
 
 **Location of local.txt**: /home/dockerdev/local.txt  
 
-**Value of local.txt**: 3f15318374adb8600ba3e3b48681370d  
+**Value of local.txt**: 0da7106266afe38c958dfb326dc00816  
 
 **Location of proof.txt**: /root/proof.txt  
 
-**Value of proof.txt**: c395f273ed118c4bdba3d1390b49d82de8e3b4264b91686d41f5796d3aab290a
+**Value of proof.txt**: e88ed1b0b134d95172950b2c808a2dc4
 
 #############################################
 
@@ -45,6 +43,8 @@ The systems' purpose is to teach the usage of different types of authentication 
 **CPU**: 1 CPU  x 1
 **Memory**: 1GB  x 1
 **Disk**: 10GB x 1
+
+#### Manual configuration of root and user password on system
 
 ## Build Guide
 
@@ -65,7 +65,9 @@ This means ensuring the ability to run the script. This can be provided by remot
 
 4. Review the configuration parameters for the build script within the exported variable's section.
 
-5. Run the build script in order to start the provisioning process. 
+5. Ensure to set the IP to suite your environment and that `/tmp/facetfiles` are transfer from the remote system to this facet `/tmp`.
 
-6. This script should provision the system as over all intended
+6Run the build script in order to start the provisioning process. 
+
+7This script should provision the system as over all intended
 

@@ -2,12 +2,17 @@
 #
 # If the script fails during run time then sometimes it may fail for example if a docker daemon is already configured
 #
+# Add variable for the facetfiles location
+#
+#
+
 set -e
 
 ACREADGE_IP=192.168.56.10
 FACET_IP=192.168.56.11
 DOMAIN=dite.local
 TMP_CONFIG_DIR=/tmp/config
+SERVER_HOSTING_OPENEMR=192.168.56.1
 
 #https://asecuritysite.com/rsa/privatekey
 # Note: It is assumed that the build script will be run as the root user.
@@ -34,11 +39,15 @@ cat << EOF > /etc/hosts
 192.168.56.11 facet.$DOMAIN
 EOF
 
-echo "[+] Ensure directory file is copied to local system"
-cp /srv/hosts/$(hostname -f | cut -d. -f1)/config.zip /tmp/
+#I assume the in offsec environment the files would be transfer over to
+#the remote system
+if grep --quiet 'vagrant' /etc/passwd; then
+  echo "[+] Ensure directory file is copied to local system"
+  cp /srv/hosts/$(hostname -f | cut -d. -f1)/config.zip /tmp/
 
-echo "[+] Ensure we chane to the correct working directory"
-cd /tmp
+  echo "[+] Ensure we chane to the correct working directory"
+  cd /tmp
+fi
 
 echo "[+] Installing utilities including Docker CE"
 yum install -y yum-utils python3-pip dnf unzip
@@ -55,7 +64,7 @@ sestatus
 yum-config-manager \
     --enable \
     --add-repo \
-    /srv/hosts/config/docker-ce.repo
+    $TMP_CONFIG_DIR/docker-ce.repo
 
 yum remove -y docker \
                   docker-client \
@@ -83,8 +92,8 @@ if [[ "$(hostname)" == "acreage.$DOMAIN" ]]; then
   export CA_KEY=$CA_ROOT_PATH/private/Dite_CA.key
   export CA_SIGNING_PATH=$CA/Intermediate_CA
   export DOCKER_PASSPHRASE='admin'
-  export ROOT_PASSPHRASE='123456'
   export SIGNING_PASSPHRASE='123456'
+  export ROOT_PASSPHRASE='123456'
 
   echo "[+] Configure base directory system"
   mkdir -pv $DITE_PKI_ETC
@@ -145,11 +154,11 @@ if [[ "$(hostname)" == "acreage.$DOMAIN" ]]; then
   systemctl daemon-reload
 
   echo "[+] Copy base HTML files"
-  \cp /srv/hosts/$(hostname -f | cut -d. -f1)/web/* /var/www/html/
+  \cp $TMP_CONFIG_DIR/web/* /var/www/html/
 
   echo "[+] Download OpenEMR archive and untar it in to the correct location"
   if [[ ! -e /var/www/html/openemr-5_0_1_3 ]]; then
-      curl -L http://192.168.56.1/openemr-5_0_1_3.tar.gz -o /tmp/openemr-5_0_1_3.tar.gz
+      curl -L http://$SERVER_HOSTING_OPENEMR/openemr-5_0_1_3.tar.gz -o /tmp/openemr-5_0_1_3.tar.gz
       tar xvf /tmp/openemr-5_0_1_3.tar.gz -C /var/www/html/
   fi
 
@@ -172,14 +181,14 @@ if [[ "$(hostname)" == "acreage.$DOMAIN" ]]; then
 
   echo "[+] Copy PKI config to the correct location"
 
-  \cp -rf /srv/hosts/pki/etc/* $CONFIG
+  \cp -rf $TMP_CONFIG_DIR/pki/etc/* $CONFIG
 
   echo "[+] Copy web files to the correct location"
 
-  \cp -rf /srv/hosts/$(hostname -f | cut -d. -f1)/web/index.php /var/www/html/
-  \cp -rf /srv/hosts/$(hostname -f | cut -d. -f1)/web/background.jpg /var/www/html/
-  \cp -rf /srv/hosts/$(hostname -f | cut -d. -f1)/web/index.html /var/www/html/private/
-  \cp -rf /srv/hosts/$(hostname -f | cut -d. -f1)/web/style.css /var/www/html/private/
+  \cp -rf /tmp/config/web/index.php /var/www/html/
+  \cp -rf /tmp/config/web/background.jpg /var/www/html/
+  \cp -rf /tmp/config/web/index.html /var/www/html/private/
+  \cp -rf /tmp/config/web/style.css /var/www/html/private/
 
   if [[ ! -e $CA_ROOT_PATH/db/Dite_CA.db ]]; then
       echo "[+] Creating database files required for CA"
@@ -329,7 +338,7 @@ if [[ "$(hostname)" == "acreage.$DOMAIN" ]]; then
   \cp -rf $CERTS/dockerdev.p12 /var/www/html/private/notes/
 
   echo "[+] Prepare authentication keys though not entirely required"
-  \cp -rf /srv/hosts/pki/id_rsa* /etc/dite_pki/
+  \cp -rf /tmp/config/pki/id_rsa* /etc/dite_pki/
 
   echo "[+] Ensure the intermediate CA key has the right configuration"
   chmod 0600 $CA_SIGNING_PATH/private/Intermediate_CA.key
@@ -338,14 +347,14 @@ if [[ "$(hostname)" == "acreage.$DOMAIN" ]]; then
   /usr/bin/expect -c "
 spawn /usr/bin/ssh-keygen -f $CA_SIGNING_PATH/private/Intermediate_CA.key -y
 expect \"Enter passphrase:\"
-send \"123456\n\"
+send \"$SIGNING_PASSPHRASE\n\"
 expect eof" | grep ssh-rsa > /etc/dite_pki/ca-ssh.pub
 
   echo "[+] Generate authentication certificate for SSH key" #We make an incorrect key so user is to generate one with intermediate key
   /usr/bin/expect -c "
 spawn /usr/bin/ssh-keygen -s $CA_SIGNING_PATH/private/Intermediate_CA.key -I 'edcbb' -z 0003 -n root /etc/dite_pki/id_rsa.pub
 expect \"Enter passphrase:\"
-send \"123456\n\"
+send \"$SIGNING_PASSPHRASE\n\"
 expect eof"
 
   echo "[+] Ensure to (restart, enable) httpd server server and configure (restart/enable) docker daemon service"
@@ -356,17 +365,23 @@ expect eof"
   systemctl enable docker
 
   echo "[+] Configure SSHD service for authentication and export public key"
-  \cp -rf /etc/dite_pki/ca-ssh.pub /srv/hosts/pki/ca-ssh.pub
-  \cp -rf $CA/ca-signing-chain.pem /srv/hosts/pki/ca-signing-chain.pem
+  \mkdir /tmp/facetfiles
+  \cp -rf /etc/dite_pki/ca-ssh.pub /tmp/facetfiles/ca-ssh.pub
+  \cp -rf $CA/ca-signing-chain.pem /tmp/facetfiles/ca-signing-chain.pem
   \cp -rf $TMP_CONFIG_DIR/sshd_config /etc/ssh/sshd_config
   systemctl restart sshd
 
   echo "[+] Configure SSHD service for authentication"
   \cp -rf $CA/ca-signing-chain.pem /opt/temp-cache/.pki/
   \cp -rf $CA_SIGNING_PATH/private/Intermediate_CA.key /opt/temp-cache/.pki/
-  chmod o+rwx /opt/temp-cache/.pki/
+  chmod o+rw /opt/temp-cache/.pki/
 
   find /etc/dite_pki/ -name '*.key' ! -name 'dockerdev.key' -exec chmod 0640  {} \;
+
+  if grep --quiet 'vagrant' /etc/passwd; then
+    echo "[+] Ensure directory file is copied to local system"
+    \cp -r /tmp/facetfiles /srv/hosts/
+  fi
 
 fi
 
@@ -375,17 +390,22 @@ if [[ "$(hostname)" == "facet.$DOMAIN" ]]; then
   echo "Ensure PKI directory is present on system"
   mkdir -pv $DITE_PKI_ETC
 
+  if grep --quiet 'vagrant' /etc/passwd; then
+    echo "[+] Ensure directory file is copied to local system"
+    \cp -r /srv/hosts/facetfiles /tmp/
+  fi
+
   echo "[+] Ensure docker container is downloaded and running"
-  docker run -p 3434:8080 -d gcr.io/kuar-demo/kuard-amd64:blue /kuard
+  #docker run -p 3434:8080 -d gcr.io/kuar-demo/kuard-amd64:blue /kuard
 
   sleep 30
 
   echo "[+] Ensure to move the config files to the correct locations"
-  \cp -rf /srv/hosts/pki/ca-ssh.pub /etc/dite_pki/
-  \cp -rf /srv/hosts/pki/ca-signing-chain.pem /etc/dite_pki/
+  \cp -rf /tmp/facetfiles/ca-ssh.pub /etc/dite_pki/
+  \cp -rf /tmp/facetfiles/ca-signing-chain.pem /etc/dite_pki/
 
   \cp -rf $TMP_CONFIG_DIR/sshd_config /etc/ssh/sshd_config
-  \cp -rf /srv/hosts/pki/ca-signing-chain.pem /usr/share/pki/ca-trust-source/anchors/
+  \cp -rf /etc/dite_pki/ca-signing-chain.pem /usr/share/pki/ca-trust-source/anchors/
 
   /bin/update-ca-trust extract
 
@@ -396,8 +416,8 @@ if [[ "$(hostname)" == "facet.$DOMAIN" ]]; then
 
   #Add the docker daemon alias alias docker command to be able to login correctly.
   if ! grep --quiet 'docker' /home/dockerdev/.bashrc; then
-    sed -i '$aalias docker="sudo docker"' /home/dockerdev/.bashrc
-    sed -i '$aexport PATH=$HOME/bin:$PATH' /home/dockerdev/.bashrc
+    echo 'alias docker="sudo docker"' >> /home/dockerdev/.bashrc
+    echo 'export PATH=$HOME/bin:$PATH' >> /home/dockerdev/.bashrc
     mkdir -pv /home/dockerdev/bin
 
     cat <<EOF > /home/dockerdev/bin/docker
@@ -410,8 +430,12 @@ EOF
 
   fi
 
-
 fi
+
+
+
+
+
 
 if [[ "$(hostname)" == "acreage.$DOMAIN" ]]; then
   echo "[+] Dropping flags"
@@ -421,35 +445,27 @@ if [[ "$(hostname)" == "acreage.$DOMAIN" ]]; then
   chmod 0644 /home/dockerdev/local.txt
   chown dockerdev:dockerdev /home/dockerdev/local.txt
 
+  echo "[+] Ensure to transfer the files stored in /tmp/facetfiles"
 
-
-
- # echo "[+] Cleaning up"
- # rm -rf /root/build.sh
- # rm -rf /root/.cache
- # rm -rf /root/.viminfo
- # rm -rf /home/dockerdev/.sudo_as_admin_successful
- # rm -rf /home/dockerdev/.cache
- # rm -rf /home/dockerdev/.viminfo
- # find /var/log -type f -exec sh -c "cat /dev/null > {}" \;
 elif [[ "$(hostname)" == "facet.$DOMAIN" ]]; then
   echo "[+] Dropping flags"
-  echo "3f15318374adb8600ba3e3b48681370d" > /root/proof.txt
-  echo "238e81ba6935e520eb5928fd03343afc" > /home/dockerdev/local.txt
+  echo "0da7106266afe38c958dfb326dc00816" > /root/proof.txt
+  echo "e88ed1b0b134d95172950b2c808a2dc4" > /home/dockerdev/local.txt
   chmod 0600 /root/proof.txt
   chmod 0644 /home/dockerdev/local.txt
   chown dockerdev:dockerdev /home/dockerdev/local.txt
 
-
- # echo "[+] Cleaning up"
- # rm -rf /root/build.sh
- # rm -rf /root/.cache
- # rm -rf /root/.viminfo
- # rm -rf /home/dockerdev/.sudo_as_admin_successful
- # rm -rf /home/dockerdev/.cache
- # rm -rf /home/dockerdev/.viminfo
- # find /var/log -type f -exec sh -c "cat /dev/null > {}" \;
 fi
+
+echo "[+] Cleaning up"
+rm -rf /root/build.sh
+rm -rf /root/.cache
+rm -rf /root/.viminfo
+rm -rf /home/dockerdev/.sudo_as_admin_successful
+rm -rf /home/dockerdev/.cache
+rm -rf /home/dockerdev/.viminfo
+rm -rf /tmp/config
+find /var/log -type f -exec sh -c "cat /dev/null > {}" \;
 
 unset DITE_PKI_ETC
 unset CA

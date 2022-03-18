@@ -1,7 +1,5 @@
 # Build Guide for Dite network 
 
-The systems' purpose is to teach the usage of different types of authentication methods based on PKI. In corporate environments there a multitude of requirements, one of the main requirements is to effectively encrypt data. This is at rest and in transit. Thus PKI technologies have to be implemented to make this possible. Strong authentication is import, so we also aim to show how TLS can be used in order ensure to strength public facing login interfaces. To enable the ability to think lateral it also important to understand how to evaluate one's privileges by using alternative authentication methods. Understanding these things would also enable an administrator to secure the infrastructure and reduce the attack surface by adding an extra barrier to application which contain vulnerabilities.
-
 ## Status
 
 **NTP**: Off  
@@ -24,11 +22,11 @@ The systems' purpose is to teach the usage of different types of authentication 
 
 **Admin Username**: root  
 
-**Admin Password**: CowabungaItsTimeToSurf991  
+**Admin Password**: CowabungaTimeToTrySurf8734  
 
 **Low Priv Username**: dockerdev
 
-**Low Priv Password**: CatchThatWaveMyDude751  
+**Low Priv Password**: CatchAllWaveDude7354  
 
 **Location of local.txt**: /home/dockerdev/local.txt  
 
@@ -45,6 +43,8 @@ The systems' purpose is to teach the usage of different types of authentication 
 **CPU**: 1 CPU  x 1
 **Memory**: 1GB  x 1
 **Disk**: 10GB x 1
+
+#### Manual configuration of root and user password on system
 
 ## Build Guide
 

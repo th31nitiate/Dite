@@ -1,6 +1,0 @@
-Cmnd_Alias DOCKER = /usr/bin/docker, /bin/docker
-Cmnd_Alias DOCKERSSH = /usr/bin/docker system dial-stdio, /usr/bin/docker ps, /bin/docker system dial-stdio, /bin/docker ps
-
-
-dockerdev ALL=(ALL) !DOCKER
-dockerdev ALL=NOPASSWD: DOCKERSSH

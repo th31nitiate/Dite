@@ -1,7 +1,6 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-
 Vagrant.configure("2") do |config|
   config.vm.synced_folder '.', '/srv/hosts', disabled: false
   config.ssh.insert_key = false
@@ -11,7 +10,6 @@ Vagrant.configure("2") do |config|
     v.cpus = 1
   end
 
-  # Define four VMs with static private IP addresses.
   boxes = [
     { :name => "acreage", :ip => "192.168.56.10",  :os => "bento/centos-7"},
     { :name => "facet", :ip => "192.168.56.11", :os => "bento/centos-7"},
